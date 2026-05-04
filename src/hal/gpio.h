@@ -40,7 +40,7 @@ static inline void gpio_set_mode( GPIO_TypeDef * port, uint8_t pin,
 {
     if( ( port != NULL ) && ( pin < 16U ) )
     {
-        uint32_t const shift = ( uint32_t )pin * 2U;
+        uint32_t const shift = ( uint32_t )pin * ( uint32_t)2U;
         port->MODER &= ~(  3UL << shift );
         port->MODER |=  ( ( uint32_t )mode << shift );
     }
@@ -62,20 +62,20 @@ static inline void gpio_set_speed( GPIO_TypeDef * port, uint8_t pin,
 {
     if( ( port != NULL ) && ( pin < 16U ) )
     {
-        uint32_t const shift = ( uint32_t )pin * 2U;
+        uint32_t const shift = ( uint32_t )pin * ( uint32_t)2UL;
         port->OSPEEDR &= ~(  3UL << shift );
         port->OSPEEDR |=  ( ( uint32_t )speed << shift );
     }
 }
 
 static inline void gpio_set_pull( GPIO_TypeDef * port, uint8_t pin,
-                                  gpio_pull_t pull )
+                                  gpio_pull_t pull_mode )
 {
     if( ( port != NULL ) && ( pin < 16U ) )
     {
-        uint32_t const shift = ( uint32_t )pin * 2U;
+        uint32_t const shift = ( uint32_t )pin * ( uint32_t)2UL;
         port->PUPDR &= ~(  3UL << shift );
-        port->PUPDR |=  ( ( uint32_t )pull << shift );
+        port->PUPDR |=  ( ( uint32_t )pull_mode << shift );
     }
 }
 
@@ -85,13 +85,13 @@ static inline void gpio_set_af( GPIO_TypeDef * port, uint8_t pin, uint8_t af )
     {
         if( pin < 8U )
         {
-            uint32_t const shift = ( uint32_t )pin * 4U;
+            uint32_t const shift = ( uint32_t )pin * ( uint32_t)4UL;
             port->AFR[ 0U ] &= ~(  0xFUL << shift );
             port->AFR[ 0U ] |=  ( ( uint32_t )af  << shift );
         }
         else
         {
-            uint32_t const shift = ( ( uint32_t )pin - 8U ) * 4U;
+            uint32_t const shift = ( ( uint32_t )pin - ( uint32_t)8UL ) * ( uint32_t)4UL;
             port->AFR[ 1U ] &= ~(  0xFUL << shift );
             port->AFR[ 1U ] |=  ( ( uint32_t )af  << shift );
         }
@@ -112,7 +112,7 @@ static inline void gpio_clear( GPIO_TypeDef * port, uint8_t pin )
     if( ( port != NULL ) && ( pin < 16U ) )
     {
         /* upper 16 bits of BSRR are reset bits */
-        port->BSRR = ( 1UL << ( ( uint32_t )pin + 16U ) );
+        port->BSRR = ( 1UL << ( ( uint32_t )( ( uint32_t )pin + 16UL ) ) );
     }
 }
 
