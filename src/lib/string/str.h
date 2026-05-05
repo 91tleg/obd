@@ -12,6 +12,7 @@
 
 void mem_copy( void * p_dst, const void * p_src, uint32_t len );
 void mem_set( void * p_dst, uint8_t val, uint32_t len );
+void mem_zero( void * p_dst, uint32_t len );
 bool mem_equal( const void * p_a, const void * p_b, uint32_t len );
 
 uint32_t str_len( const char * p_str );

@@ -32,6 +32,11 @@ void mem_set( void * p_dst, uint8_t val, uint32_t len )
     }
 }
 
+void mem_zero( void * p_dst, uint32_t len )
+{
+    mem_set( p_dst, 0U, len );
+}
+
 bool mem_equal( const void * p_a, const void * p_b, uint32_t len )
 {
     bool result = false;

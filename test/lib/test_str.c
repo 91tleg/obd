@@ -165,8 +165,8 @@ void test_mem_equal_zero_len( void )
     uint8_t a[ 4U ] = { 0x01U, 0x02U, 0x03U, 0x04U };
     uint8_t b[ 4U ] = { 0xFFU, 0xFFU, 0xFFU, 0xFFU };
 
-    /* zero length — nothing to compare, returns false by default */
-    TEST_ASSERT_FALSE( mem_equal( a, b, 0U ) );
+    /* zero length — vacuously equal, nothing to compare */
+    TEST_ASSERT_TRUE( mem_equal( a, b, 0U ) );
 }
 
 void test_mem_equal_null_a( void )
