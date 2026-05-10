@@ -91,7 +91,7 @@ g_pfn_vectors:
     .word debug_mon_handler
     .word 0                         /* reserved */
     .word pend_sv_handler
-    .word sys_tick_handler
+    .word systick_handler
     /* External -- pad unreserved slots with default_handler,
        add a real handler name when you need it               */
     .word default_handler           /* WWDG                  */
@@ -263,8 +263,8 @@ g_pfn_vectors:
     .thumb_set debug_mon_handler, default_handler
     .weak pend_sv_handler
     .thumb_set pend_sv_handler, default_handler
-    .weak sys_tick_handler
-    .thumb_set sys_tick_handler, default_handler
+    .weak systick_handler
+    .thumb_set systick_handler, default_handler
 
     /* Weak-alias we need */
     /* Add an entry here when we promote a default_handler slot. */

@@ -1,0 +1,11 @@
+/**
+ * @file    bsp.h
+ * @brief   Single include for the application layer
+ */
+
+#ifndef BSP_BSP_H
+#define BSP_BSP_H
+
+#include "@BOARD@/systick.h"
+
+#endif /* BSP_BSP_H */
