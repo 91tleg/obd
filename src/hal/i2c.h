@@ -2,6 +2,7 @@
 #define HAL_I2C_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include "stm32h753xx.h"
 #include "lib/core/result.h"

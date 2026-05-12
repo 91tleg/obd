@@ -115,17 +115,26 @@ result_t i2c_init( I2C_TypeDef * p_i2c, uint32_t timing )
 
     if( p_i2c != NULL )
     {
+        uint32_t timeout = 1000U;
+
         p_i2c->CR1 &= ~I2C_CR1_PE;
 
-        /* timing register */
-        p_i2c->TIMINGR = timing;
+        /* PE must read back 0 before TIMINGR is writable */
+        while( ( ( p_i2c->CR1 & I2C_CR1_PE ) != 0U ) && ( timeout > 0U ) )
+        {
+            --timeout;
+        }
 
-        /* no analog filter, no digital filter */
-        p_i2c->CR1 = 0U;
-
-        p_i2c->CR1 |= I2C_CR1_PE;
-
-        result = RES_OK;
+        if( timeout == 0U )
+        {
+            result = RES_ERR_TIMEOUT;
+        }
+        else
+        {
+            p_i2c->TIMINGR = timing;
+            p_i2c->CR1 = I2C_CR1_PE;
+            result = RES_OK;
+        }
     }
 
     return result;
