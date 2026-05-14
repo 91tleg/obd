@@ -29,9 +29,9 @@ static inline void pwr_set_vos( pwr_vos_t vos )
     PWR->D3CR = ( d3cr & ~PWR_D3CR_VOS_Msk )
                 | ( ( uint32_t )vos << PWR_D3CR_VOS_Pos );
 
-    while( ( PWR->D3CR & PWR_D3CR_VOSRDY ) == 0U )
+    while( ( PWR->CSR1 & PWR_CSR1_ACTVOSRDY ) == 0U )
     {
-        /* wait for voltage scaling ready */
+        /* wait for active voltage scaling ready */
     }
 }
 
@@ -39,11 +39,6 @@ static inline pwr_vos_t pwr_get_vos( void )
 {
     return ( pwr_vos_t )( ( PWR->D3CR & PWR_D3CR_VOS_Msk )
                             >> PWR_D3CR_VOS_Pos );
-}
-
-static inline bool pwr_smps_ready( void )
-{
-    return ( ( PWR->CSR1 & PWR_CSR1_ACTVOSRDY ) != 0U );
 }
 
 static inline bool pwr_vos_ready( void )
@@ -55,7 +50,7 @@ static inline void pwr_overdrive_enable( void )
 {
     SYSCFG->PWRCR |= SYSCFG_PWRCR_ODEN;
 
-    while( ( PWR->D3CR & PWR_D3CR_VOSRDY ) == 0U )
+    while( ( PWR->CSR1 & PWR_CSR1_ACTVOSRDY ) == 0U )
     {
         /* wait for overdrive ready */
     }
@@ -80,7 +75,6 @@ static inline void pwr_enter_sleep( void )
 static inline void pwr_enter_stop( void )
 {
     SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
-    PWR->CR1  = ( PWR->CR1 & ~PWR_CR1_LPDS_Msk ) | PWR_CR1_LPDS;
     __WFI();
     SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
 }
