@@ -39,6 +39,7 @@ file( GLOB_RECURSE TEST_FILES
 
 set( APP_INCLUDE_DIRS
      "${SRC_ROOT}"
+     "${SRC_ROOT}/lib/log"
      "${SRC_ROOT}/lib/math"
      "${SRC_ROOT}/lib/string"
      "${SRC_ROOT}/lib/time"

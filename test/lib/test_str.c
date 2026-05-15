@@ -423,6 +423,60 @@ void test_str_concat_dst_full( void )
     TEST_ASSERT_EQUAL_STRING( "hello", dst );
 }
 
+/* str_str */
+
+void test_str_str_basic_match( void )
+{
+    const char * s = "hello world";
+
+    TEST_ASSERT_EQUAL_PTR( s + 6, str_str( s, "world" ) );
+}
+
+void test_str_str_full_match( void )
+{
+    const char * s = "abc";
+
+    TEST_ASSERT_EQUAL_PTR( s, str_str( s, "abc" ) );
+}
+
+void test_str_str_no_match( void )
+{
+    TEST_ASSERT_NULL( str_str( "abc", "xyz" ) );
+}
+
+void test_str_str_empty_needle( void )
+{
+    const char * s = "abc";
+
+    TEST_ASSERT_EQUAL_PTR( s, str_str( s, "" ) );
+}
+
+void test_str_str_empty_haystack( void )
+{
+    TEST_ASSERT_NULL( str_str( "", "a" ) );
+}
+
+void test_str_str_both_empty( void )
+{
+    const char * s = "";
+
+    TEST_ASSERT_EQUAL_PTR( s, str_str( s, "" ) );
+}
+
+void test_str_str_partial_match( void )
+{
+    const char * s = "aaaaab";
+
+    TEST_ASSERT_EQUAL_PTR( s + 3, str_str( s, "aab" ) );
+}
+
+void test_str_str_single_char( void )
+{
+    const char * s = "abcdef";
+
+    TEST_ASSERT_EQUAL_PTR( s + 3, str_str( s, "d" ) );
+}
+
 /* u32_to_str */
 
 void test_u32_to_str_zero( void )
@@ -562,6 +616,120 @@ void test_i32_to_str_negative_one( void )
     TEST_ASSERT_EQUAL_STRING( "-1", buf );
 }
 
+/* f32_to_str */
+
+void test_f32_to_str_zero( void )
+{
+    char buf[ 16U ];
+    f32_to_str( 0.0F, buf, sizeof( buf ), 2U );
+    TEST_ASSERT_EQUAL_STRING( "0.00", buf );
+}
+ 
+void test_f32_to_str_positive_integer( void )
+{
+    char buf[ 16U ];
+    f32_to_str( 42.0F, buf, sizeof( buf ), 0U );
+    TEST_ASSERT_EQUAL_STRING( "42", buf );
+}
+ 
+void test_f32_to_str_positive_two_decimals( void )
+{
+    char buf[ 16U ];
+    f32_to_str( 14.2F, buf, sizeof( buf ), 2U );
+    /* 14.2F stores as ~14.1999... — truncation gives 14.19 */
+    TEST_ASSERT_EQUAL_STRING( "14.19", buf );
+}
+ 
+void test_f32_to_str_negative( void )
+{
+    char buf[ 16U ];
+    f32_to_str( -10.5F, buf, sizeof( buf ), 1U );
+    TEST_ASSERT_EQUAL_STRING( "-10.5", buf );
+}
+ 
+void test_f32_to_str_negative_zero_decimals( void )
+{
+    char buf[ 16U ];
+    f32_to_str( -7.0F, buf, sizeof( buf ), 0U );
+    TEST_ASSERT_EQUAL_STRING( "-7", buf );
+}
+ 
+void test_f32_to_str_one_decimal( void )
+{
+    char buf[ 16U ];
+    f32_to_str( 3.7F, buf, sizeof( buf ), 1U );
+    TEST_ASSERT_EQUAL_STRING( "3.7", buf );
+}
+ 
+void test_f32_to_str_truncates_not_rounds( void )
+{
+    /* 9.75F is exact in binary — with 1 decimal truncates to 9.7 not 9.8 */
+    char buf[ 16U ];
+    f32_to_str( 9.75F, buf, sizeof( buf ), 1U );
+    TEST_ASSERT_EQUAL_STRING( "9.7", buf );
+}
+ 
+void test_f32_to_str_zero_decimals_no_dot( void )
+{
+    char buf[ 16U ];
+    uint32_t i;
+    bool found_dot = false;
+
+    f32_to_str( 99.9F, buf, sizeof( buf ), 0U );
+    TEST_ASSERT_EQUAL_STRING( "99", buf );
+
+    for( i = 0U; buf[ i ] != '\0'; i++ )
+    {
+        if( buf[ i ] == '.' )
+        {
+            found_dot = true;
+        }
+    }
+    TEST_ASSERT_FALSE( found_dot );
+}
+ 
+void test_f32_to_str_null_buf_returns_zero( void )
+{
+    uint32_t len = f32_to_str( 1.0F, NULL, 16U, 2U );
+    TEST_ASSERT_EQUAL_UINT32( 0U, len );
+}
+ 
+void test_f32_to_str_buf_too_small_returns_zero( void )
+{
+    char buf[ 1U ];
+    uint32_t len = f32_to_str( 1.0F, buf, sizeof( buf ), 2U );
+    TEST_ASSERT_EQUAL_UINT32( 0U, len );
+}
+ 
+void test_f32_to_str_null_terminates( void )
+{
+    char buf[ 16U ];
+    uint32_t len = f32_to_str( 3.14F, buf, sizeof( buf ), 2U );
+    TEST_ASSERT_EQUAL_CHAR( '\0', buf[ len ] );
+}
+ 
+void test_f32_to_str_returns_length( void )
+{
+    char buf[ 16U ];
+    uint32_t len = f32_to_str( 3.14F, buf, sizeof( buf ), 2U );
+    TEST_ASSERT_EQUAL_UINT32( ( uint32_t )str_len( buf ), len );
+}
+ 
+void test_f32_to_str_battery_voltage( void )
+{
+    /* typical OBD use case */
+    char buf[ 16U ];
+    f32_to_str( 12.6F, buf, sizeof( buf ), 1U );
+    TEST_ASSERT_EQUAL_STRING( "12.6", buf );
+}
+ 
+void test_f32_to_str_negative_small( void )
+{
+    char buf[ 16U ];
+    f32_to_str( -0.5F, buf, sizeof( buf ), 1U );
+    TEST_ASSERT_EQUAL_STRING( "-0.5", buf );
+}
+
 /* u8_to_hex */
 
 void test_u8_to_hex_zero( void )
@@ -631,6 +799,99 @@ void test_u8_to_hex_returns_two( void )
     uint32_t result    = u8_to_hex( 0xABU, buf );
 
     TEST_ASSERT_EQUAL_UINT32( 2U, result );
+}
+
+/* u32_to_hex */
+
+void test_u32_to_hex_zero( void )
+{
+    char buf[ 9U ];
+    uint32_t len = u32_to_hex( 0x00000000U, buf, sizeof( buf ) );
+    TEST_ASSERT_EQUAL_STRING( "00000000", buf );
+    TEST_ASSERT_EQUAL_UINT32( 8U, len );
+}
+ 
+void test_u32_to_hex_max( void )
+{
+    char buf[ 9U ];
+    uint32_t len = u32_to_hex( 0xFFFFFFFFU, buf, sizeof( buf ) );
+    TEST_ASSERT_EQUAL_STRING( "FFFFFFFF", buf );
+    TEST_ASSERT_EQUAL_UINT32( 8U, len );
+}
+ 
+void test_u32_to_hex_byte_zero_padded( void )
+{
+    char buf[ 9U ];
+    u32_to_hex( 0xABU, buf, sizeof( buf ) );
+    TEST_ASSERT_EQUAL_STRING( "000000AB", buf );
+}
+ 
+void test_u32_to_hex_known_value( void )
+{
+    char buf[ 9U ];
+    u32_to_hex( 0xDEADBEEFU, buf, sizeof( buf ) );
+    TEST_ASSERT_EQUAL_STRING( "DEADBEEF", buf );
+}
+ 
+void test_u32_to_hex_uppercase( void )
+{
+    char buf[ 9U ];
+    u32_to_hex( 0xABCDEF01U, buf, sizeof( buf ) );
+    /* verify no lowercase */
+    uint32_t i;
+    for( i = 0U; i < 8U; i++ )
+    {
+        TEST_ASSERT_FALSE( ( buf[ i ] >= 'a' ) && ( buf[ i ] <= 'f' ) );
+    }
+}
+ 
+void test_u32_to_hex_always_8_digits( void )
+{
+    char buf[ 9U ];
+    uint32_t len;
+ 
+    len = u32_to_hex( 0x1U, buf, sizeof( buf ) );
+    TEST_ASSERT_EQUAL_UINT32( 8U, len );
+ 
+    len = u32_to_hex( 0x1234U, buf, sizeof( buf ) );
+    TEST_ASSERT_EQUAL_UINT32( 8U, len );
+ 
+    len = u32_to_hex( 0x12345678U, buf, sizeof( buf ) );
+    TEST_ASSERT_EQUAL_UINT32( 8U, len );
+}
+ 
+void test_u32_to_hex_null_buf_returns_zero( void )
+{
+    uint32_t len = u32_to_hex( 0xABCDU, NULL, 9U );
+    TEST_ASSERT_EQUAL_UINT32( 0U, len );
+}
+ 
+void test_u32_to_hex_buf_too_small_returns_zero( void )
+{
+    char buf[ 8U ];   /* needs 9 — one too small */
+    uint32_t len = u32_to_hex( 0xABCDU, buf, sizeof( buf ) );
+    TEST_ASSERT_EQUAL_UINT32( 0U, len );
+}
+ 
+void test_u32_to_hex_null_terminates( void )
+{
+    char buf[ 9U ];
+    u32_to_hex( 0x12345678U, buf, sizeof( buf ) );
+    TEST_ASSERT_EQUAL_CHAR( '\0', buf[ 8U ] );
+}
+ 
+void test_u32_to_hex_nibble_boundary( void )
+{
+    char buf[ 9U ];
+ 
+    u32_to_hex( 0x0000000FU, buf, sizeof( buf ) );
+    TEST_ASSERT_EQUAL_STRING( "0000000F", buf );
+ 
+    u32_to_hex( 0x00000010U, buf, sizeof( buf ) );
+    TEST_ASSERT_EQUAL_STRING( "00000010", buf );
+ 
+    u32_to_hex( 0xF0000000U, buf, sizeof( buf ) );
+    TEST_ASSERT_EQUAL_STRING( "F0000000", buf );
 }
 
 /* mem_zero (uses mem_set internally) */
@@ -730,6 +991,16 @@ int main( void )
     RUN_TEST( test_str_concat_empty_src );
     RUN_TEST( test_str_concat_dst_full );
 
+    /* str_str */
+    RUN_TEST( test_str_str_basic_match );
+    RUN_TEST( test_str_str_full_match );
+    RUN_TEST( test_str_str_no_match );
+    RUN_TEST( test_str_str_empty_needle );
+    RUN_TEST( test_str_str_empty_haystack );
+    RUN_TEST( test_str_str_both_empty );
+    RUN_TEST( test_str_str_partial_match );
+    RUN_TEST( test_str_str_single_char );
+
     /* u32_to_str */
     RUN_TEST( test_u32_to_str_zero );
     RUN_TEST( test_u32_to_str_basic );
@@ -749,6 +1020,22 @@ int main( void )
     RUN_TEST( test_i32_to_str_null_buf );
     RUN_TEST( test_i32_to_str_negative_one );
 
+    /* f32_to_str */
+    RUN_TEST( test_f32_to_str_zero );
+    RUN_TEST( test_f32_to_str_positive_integer );
+    RUN_TEST( test_f32_to_str_positive_two_decimals );
+    RUN_TEST( test_f32_to_str_negative );
+    RUN_TEST( test_f32_to_str_negative_zero_decimals );
+    RUN_TEST( test_f32_to_str_one_decimal );
+    RUN_TEST( test_f32_to_str_truncates_not_rounds );
+    RUN_TEST( test_f32_to_str_zero_decimals_no_dot );
+    RUN_TEST( test_f32_to_str_null_buf_returns_zero );
+    RUN_TEST( test_f32_to_str_buf_too_small_returns_zero );
+    RUN_TEST( test_f32_to_str_null_terminates );
+    RUN_TEST( test_f32_to_str_returns_length );
+    RUN_TEST( test_f32_to_str_battery_voltage );
+    RUN_TEST( test_f32_to_str_negative_small );
+
     /* u8_to_hex */
     RUN_TEST( test_u8_to_hex_zero );
     RUN_TEST( test_u8_to_hex_ff );
@@ -758,6 +1045,18 @@ int main( void )
     RUN_TEST( test_u8_to_hex_null );
     RUN_TEST( test_u8_to_hex_null_terminated );
     RUN_TEST( test_u8_to_hex_returns_two );
+
+    /* u32_to_hex */
+    RUN_TEST( test_u32_to_hex_zero );
+    RUN_TEST( test_u32_to_hex_max );
+    RUN_TEST( test_u32_to_hex_byte_zero_padded );
+    RUN_TEST( test_u32_to_hex_known_value );
+    RUN_TEST( test_u32_to_hex_uppercase );
+    RUN_TEST( test_u32_to_hex_always_8_digits );
+    RUN_TEST( test_u32_to_hex_null_buf_returns_zero );
+    RUN_TEST( test_u32_to_hex_buf_too_small_returns_zero );
+    RUN_TEST( test_u32_to_hex_null_terminates );
+    RUN_TEST( test_u32_to_hex_nibble_boundary );
 
     /* mem_zero */
     RUN_TEST( test_mem_zero_basic );

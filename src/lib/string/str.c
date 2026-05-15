@@ -43,7 +43,6 @@ bool mem_equal( const void * p_a, const void * p_b, uint32_t len )
 
     if( ( p_a != NULL ) && ( p_b != NULL ) )
     {
-        
         const uint8_t * a = ( const uint8_t * )p_a;
         const uint8_t * b = ( const uint8_t * )p_b;
         bool match  = true;
@@ -97,7 +96,6 @@ bool str_equal( const char * p_a, const char * p_b )
 {
     bool result = false;
 
-
     if( ( p_a != NULL ) && ( p_b != NULL ) )
     {    
         uint32_t i = 0U;
@@ -136,6 +134,48 @@ void str_concat( char * p_dst, const char * p_src, uint32_t max_len )
             str_copy( &p_dst[ dst_len ], p_src, max_len - dst_len );
         }
     }
+}
+
+const char * str_str( const char * haystack, const char * needle )
+{
+    const char * result = NULL;
+
+    if( ( haystack != NULL ) && ( needle != NULL ) )
+    {
+        if( *needle == '\0' )
+        {
+            result = haystack;
+        }
+        else
+        {
+            const char * h = haystack;
+
+            while( ( *h != '\0' ) && ( result == NULL ) )
+            {
+                const char * h_it = h;
+                const char * n_it = needle;
+
+                while( ( *h_it != '\0' ) &&
+                       ( *n_it != '\0' ) &&
+                       ( *h_it == *n_it ) )
+                {
+                    ++h_it;
+                    ++n_it;
+                }
+
+                if( *n_it == '\0' )
+                {
+                    result = h;
+                }
+                else
+                {
+                    ++h;
+                }
+            }
+        }
+    }
+
+    return result;
 }
 
 uint32_t u32_to_str( uint32_t val, char * p_buf, uint32_t buf_len )
@@ -208,6 +248,57 @@ uint32_t i32_to_str( int32_t val, char * p_buf, uint32_t buf_len )
     return result;
 }
 
+uint32_t f32_to_str( float val, char * p_buf, uint32_t buf_len, uint8_t decimals )
+{
+    uint32_t result = 0U;
+
+    if( ( p_buf != NULL ) && ( buf_len > 1U ) )
+    {
+        uint32_t pos = 0U;
+        float work = val;
+
+        /* handle negative */
+        if( work < 0.0F )
+        {
+            if( pos < ( buf_len - 1U ) )
+            {
+                p_buf[ pos ] = '-';
+                pos++;
+            }
+            work = -work;
+        }
+
+        /* integer part */
+        uint32_t const whole = ( uint32_t )work;
+        pos += u32_to_str( whole, &p_buf[ pos ], buf_len - pos );
+
+        /* fractional part */
+        if( ( decimals > 0U ) && ( pos < ( buf_len - 1U ) ) )
+        {
+            p_buf[ pos ] = '.';
+            pos++;
+
+            float frac = work - ( float )whole;
+
+            for( uint32_t i = 0U; i < ( uint32_t )decimals; i++ )
+            {
+                frac *= 10.0F;
+
+                if( pos < ( buf_len - 1U ) )
+                {
+                    p_buf[ pos ] = ( char )( '0' + ( uint32_t )frac % 10U );
+                    pos++;
+                }
+            }
+        }
+
+        p_buf[ pos ] = '\0';
+        result = pos;
+    }
+
+    return result;
+}
+
 uint32_t u8_to_hex( uint8_t val, char * p_buf )
 {
     uint32_t result = 0U;
@@ -219,6 +310,26 @@ uint32_t u8_to_hex( uint8_t val, char * p_buf )
         p_buf[ 1U ] = s_hex[ val & 0x0FU ];
         p_buf[ 2U ] = '\0';
         result = 2U;
+    }
+
+    return result;
+}
+
+uint32_t u32_to_hex( uint32_t val, char * p_buf, uint32_t buf_len )
+{
+    uint32_t result = 0U;
+
+    if( ( p_buf != NULL ) && ( buf_len > 8U ) )  /* 8 nibbles + null */
+    {
+        static const char s_hex[] = "0123456789ABCDEF";
+
+        for( uint32_t i = 0U; i < 8U; ++i )
+        {
+            p_buf[ i ] = s_hex[ ( val >> ( ( 7U - i ) * 4U ) ) & 0xFU ];
+        }
+
+        p_buf[ 8U ] = '\0';
+        result = 8U;
     }
 
     return result;
