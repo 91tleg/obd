@@ -160,7 +160,7 @@ result_t i2c_write_byte( I2C_TypeDef * p_i2c,
         /* wait for TXIS — ready to send byte */
         result = i2c_wait_flag( p_i2c, I2C_ISR_TXIS, timeout_ms );
 
-        if( RES_OK( result ) )
+        if( RES_IS_OK( result ) )
         {
             p_i2c->TXDR = ( uint32_t )data;
 
@@ -168,7 +168,7 @@ result_t i2c_write_byte( I2C_TypeDef * p_i2c,
             result = i2c_wait_flag( p_i2c, I2C_ISR_STOPF, timeout_ms );
         }
 
-        if( RES_OK( result ) )
+        if( RES_IS_OK( result ) )
         {
             result = i2c_check_errors( p_i2c );
         }
@@ -285,23 +285,23 @@ result_t i2c_read_buf( I2C_TypeDef * p_i2c,
 
         result = RES_OK;
 
-        while( ( i < len ) && RES_OK( result ) )
+        while( ( i < len ) && RES_IS_OK( result ) )
         {
             result = i2c_wait_flag( p_i2c, I2C_ISR_RXNE, timeout_ms );
 
-            if( RES_OK( result ) )
+            if( RES_IS_OK( result ) )
             {
                 p_buf[ i ] = ( uint8_t )( p_i2c->RXDR & 0xFFU );
                 i++;
             }
         }
 
-        if( RES_OK( result ) )
+        if( RES_IS_OK( result ) )
         {
             result = i2c_wait_flag( p_i2c, I2C_ISR_STOPF, timeout_ms );
         }
 
-        if( RES_OK( result ) )
+        if( RES_IS_OK( result ) )
         {
             result = i2c_check_errors( p_i2c );
         }
