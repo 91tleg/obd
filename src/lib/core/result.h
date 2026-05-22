@@ -24,7 +24,7 @@ typedef enum
     RES_ERR_INTERNAL    = 10U,  /* should never happen                   */
 } result_t;
 
-#define RES_OK( r )     ( ( r ) == RES_OK )
-#define RES_FAILED( r ) ( ( r ) != RES_OK )
+#define RES_IS_OK( r )     ( ( r ) == RES_OK )
+#define RES_IS_FAILED( r ) ( ( r ) != RES_OK )
 
 #endif /* LIB_CORE_RESULT_H */
