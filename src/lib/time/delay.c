@@ -1,5 +1,6 @@
 #include "delay.h"
 #include "delay_tick.h"
+#include <stddef.h>
 
 static uint32_t s_cycles_per_us = 0U;
 
@@ -74,7 +75,7 @@ void delay_timer_stop( delay_timer_t * p_timer )
     }
 }
 
-uint32_t delay_timer_elapsed( delay_timer_t * p_timer )
+uint32_t delay_timer_elapsed( const delay_timer_t * p_timer )
 {
     uint32_t result = 0U;
 
