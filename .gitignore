@@ -1,2 +1,4 @@
 .vscode/
 build/
+*.dump
+*.ctu-info
