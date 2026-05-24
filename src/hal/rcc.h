@@ -2,6 +2,7 @@
 #define HAL_RCC_H
 
 #include <stdint.h>
+#include <stddef.h>
 #include "stm32h753xx.h"
 
 typedef struct
@@ -482,6 +483,23 @@ static inline void rcc_usart_clk_src_hsi( USART_TypeDef * uart )
     {
         /* NULL or invalid uart — no action */
     }
+}
+
+static inline void rcc_syscfg_clk_enable( void )
+{
+    RCC->APB4ENR |= RCC_APB4ENR_SYSCFGEN;
+    ( void )RCC->APB4ENR;
+}
+
+static inline void rcc_fdcan_clk_enable( void )
+{
+    RCC->APB1HENR |= RCC_APB1HENR_FDCANEN;
+    ( void )RCC->APB1HENR;
+}
+
+static inline void rcc_fdcan_clk_disable( void )
+{
+    RCC->APB1HENR &= ~RCC_APB1HENR_FDCANEN;
 }
 
 #endif /* HAL_RCC_H */
