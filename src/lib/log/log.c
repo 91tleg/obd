@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include "log_output.h"
 #include "lib/string/str.h"
+#include "lib/core/macros.h"
 
 log_level_t g_log_level = LOG_INFO;   /* extern in header, read by macros */
 
@@ -18,7 +19,7 @@ static const char * const s_level_str[] =
     "V",   /* LOG_VERBOSE */
 };
 
-#define LEVEL_STR_COUNT  ( sizeof( s_level_str ) / sizeof( s_level_str[ 0U ] ) )
+#define LEVEL_STR_COUNT  ARRAY_SIZE( s_level_str )
 
 /**
  * Copy at most (buf_len - 1) chars from str into buf.
