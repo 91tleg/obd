@@ -255,40 +255,42 @@ uint32_t f32_to_str( float val, char * p_buf, uint32_t buf_len, uint8_t decimals
     if( ( p_buf != NULL ) && ( buf_len > 1U ) )
     {
         uint32_t pos = 0U;
+        uint32_t room = buf_len - 1U;
         float work = val;
 
-        /* handle negative */
+        /* Handle negative */
         if( work < 0.0F )
         {
-            if( pos < ( buf_len - 1U ) )
-            {
-                p_buf[ pos ] = '-';
-                pos++;
-            }
+            p_buf[ pos ] = '-';
+            pos++;
+            room--;
             work = -work;
         }
 
-        /* integer part */
-        uint32_t const whole = ( uint32_t )work;
-        pos += u32_to_str( whole, &p_buf[ pos ], buf_len - pos );
+        /* Integer part */
+        if( room > 0U )
+        {
+            uint32_t written = u32_to_str( ( uint32_t )work,
+                                           &p_buf[ pos ], room + 1U );
+            pos  += written;
+            room -= written;
+        }
 
-        /* fractional part */
-        if( ( decimals > 0U ) && ( pos < ( buf_len - 1U ) ) )
+        /* Fractional part */
+        if( ( decimals > 0U ) && ( room > 0U ) )
         {
             p_buf[ pos ] = '.';
             pos++;
+            room--;
 
-            float frac = work - ( float )whole;
+            float frac = work - ( float )( uint32_t )work;
 
-            for( uint32_t i = 0U; i < ( uint32_t )decimals; i++ )
+            for( uint32_t i = 0U; ( i < ( uint32_t )decimals ) && ( room > 0U ); ++i )
             {
                 frac *= 10.0F;
-
-                if( pos < ( buf_len - 1U ) )
-                {
-                    p_buf[ pos ] = ( char )( '0' + ( uint32_t )frac % 10U );
-                    pos++;
-                }
+                p_buf[ pos ] = ( char )( '0' + ( uint32_t )frac % 10U );
+                pos++;
+                room--;
             }
         }
 
