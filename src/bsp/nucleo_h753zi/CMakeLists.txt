@@ -1,5 +1,9 @@
 add_library(bsp_nucleo_h753zi STATIC
+    clock.c
+    hd44780_i2c.c
+    i2c.c
     systick.c
+    uart_hw.c
 )
 
 target_include_directories(bsp_nucleo_h753zi PUBLIC
@@ -11,4 +15,5 @@ target_include_directories(bsp_nucleo_h753zi PUBLIC
 target_link_libraries(bsp_nucleo_h753zi PUBLIC
     hal
     cmsis
+    drivers
 )

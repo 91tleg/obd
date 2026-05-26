@@ -23,6 +23,16 @@
 #define BSP_BTN_USER_PORT     ( GPIOC )
 #define BSP_BTN_USER_PIN      ( 13U )
 
+/* CAN (FDCAN1 — PD0/PD1, AF9) */
+#define BSP_CAN               ( FDCAN1 )
+#define BSP_CAN_TX_PORT       ( GPIOD )
+#define BSP_CAN_TX_PIN        ( 1U )
+#define BSP_CAN_TX_AF         ( 9U )
+#define BSP_CAN_RX_PORT       ( GPIOD )
+#define BSP_CAN_RX_PIN        ( 0U )
+#define BSP_CAN_RX_AF         ( 9U )
+#define BSP_CAN_TIMING        ( 0x001C0013U )  /* 500kbps @ 80MHz */
+
 /* Debug UART (ST-Link virtual COM) */
 #define BSP_DEBUG_RX_BUF_SIZE   ( 256U )
 #define BSP_DEBUG_TX_BUF_SIZE   ( 256U )
@@ -36,6 +46,7 @@
 #define BSP_DEBUG_RX_AF         ( 7U )
 #define BSP_DEBUG_IRQn          ( USART3_IRQn )
 #define BSP_DEBUG_IRQ_PRIORITY  ( 6U )
+#define BSP_UART_CH_DEBUG       ( 0U )
 
 /* OBD UART */
 #define BSP_OBD_RX_BUF_SIZE     ( 64U )
@@ -50,6 +61,7 @@
 #define BSP_OBD_RX_AF           ( 8U )
 #define BSP_OBD_IRQn            ( UART4_IRQn )
 #define BSP_OBD_IRQ_PRIORITY    ( 5U )   /* higher priority than debug   */
+#define BSP_UART_CH_OBD         ( 1U )
 
 /* LCD (I2C) */
 #define BSP_LCD_I2C           ( I2C1 )
