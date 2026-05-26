@@ -7,7 +7,7 @@
  */
 
 #include "drivers/uart/uart_hw.h"
-#include "bsp/resources.h"
+#include "bsp/nucleo_h753zi/resources.h"
 #include "hal/uart.h"
 #include "lib/core/macros.h"
 
