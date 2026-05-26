@@ -1,5 +1,6 @@
+#include "bsp/nucleo_h753zi/wdt.h"
+#include "bsp/nucleo_h753zi/resources.h"
 #include "hal/iwdg.h"
-#include "bsp/resources.h"
 
 /* LSI ~32kHz, prescaler /32 = 1kHz tick, reload 2000 = 2s timeout */
 #define BSP_WDT_PRESCALER  ( 3U    )
