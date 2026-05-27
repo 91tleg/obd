@@ -4,6 +4,7 @@
  */
 
 #include "drivers/protocol/obd/cmd.h"
+#include <stddef.h>
 
 uint8_t obd_cmd_current_data( uint8_t pid, uint8_t * buf )
 {

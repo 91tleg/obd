@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "lib/core/result.h"
+#include "drivers/protocol/obd/obd_types.h"
 
 /**
  * @brief  Decode a Mode 01 current-data response.
@@ -28,7 +29,7 @@
  *         or RES_ERR_INVALID_ARG.
  */
 result_t obd_decode_pid( uint8_t pid,
-                         uint8_t * payload,
+                         uint8_t const * payload,
                          uint8_t len,
                          live_data_param_t * param_out,
                          uint32_t timestamp );
@@ -42,7 +43,7 @@ result_t obd_decode_pid( uint8_t pid,
  * @param  dtc_out   Output list; entries appended up to capacity.
  * @return RES_OK or RES_ERR_INVALID_ARG.
  */
-result_t obd_decode_dtcs( uint8_t * payload,
+result_t obd_decode_dtcs( uint8_t const * payload,
                           uint32_t len,
                           bool pending,
                           dtc_list_t * dtc_out );
@@ -57,7 +58,7 @@ result_t obd_decode_dtcs( uint8_t * payload,
  * @param  max_pids      Capacity of @p pids_out.
  * @param  count_out     Number of supported PIDs found.
  */
-result_t obd_decode_supported_pids( uint8_t * payload,
+result_t obd_decode_supported_pids( uint8_t const * payload,
                                     uint8_t base_pid,
                                     uint8_t * pids_out,
                                     uint32_t max_pids,

@@ -4,8 +4,8 @@
  */
 
 #include "drivers/protocol/obd/decoder.h"
+#include <stddef.h>
 #include "drivers/protocol/obd/cmd.h"
-#include "drivers/protocol/obd/obd_types.h"
 
 /* Big endian */
 static uint16_t u16_be( uint8_t const * p )
