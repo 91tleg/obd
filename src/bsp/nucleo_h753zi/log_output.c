@@ -4,15 +4,28 @@
  */
 
 #include "lib/log/log_output.h"
-#include "bsp/nucleo_h753zi/resources.h"
-#include "hal/uart.h"
+#include "bsp/nucleo_h753zi/uart_debug.h"
+#include "drivers/uart/uart.h"
 
-void log_write_output( const char * buf, uint32_t len )
+result_t log_write_output( const char * buf, uint32_t len )
 {
-    for( uint32_t i = 0U; i < len; ++i )
+    result_t result = RES_ERR_INVALID_ARG;
+
+    if( ( buf != NULL ) && ( len > 0U ) )
     {
-        ( void )uart_write_byte_blocking( BSP_DEBUG_UART,
-                                          ( uint8_t )buf[ i ],
-                                          1U );
+        uart_driver_t * drv = bsp_uart_debug();
+        uint32_t written = uart_driver_write( drv,
+                                              ( uint8_t const * )buf,
+                                              len );
+        if( written == len )
+        {
+            result = RES_OK;
+        }
+        else
+        {
+            result = RES_ERR_OVERFLOW;
+        }
     }
+
+    return result;
 }

@@ -7,6 +7,7 @@
 #define LIB_LOG_LOG_OUTPUT_H
 
 #include <stdint.h>
+#include "lib/core/result.h"
 
 /**
  * Emit a formatted log line.
@@ -15,6 +16,6 @@
  *              valid after this call returns — do not store the pointer.
  * @param len   Number of bytes to write (excludes null terminator).
  */
-void log_write_output( const char * buf, uint32_t len );
+result_t log_write_output( const char * buf, uint32_t len );
 
 #endif /* LIB_LOG_LOG_OUTPUT_H */

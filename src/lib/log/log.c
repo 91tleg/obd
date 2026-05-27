@@ -7,6 +7,7 @@
 #include "lib/string/str.h"
 #include "lib/core/macros.h"
 
+static uint32_t s_overflow_count = 0U;
 log_level_t g_log_level = LOG_INFO;   /* extern in header, read by macros */
 
 static const char * const s_level_str[] =
@@ -59,6 +60,7 @@ static void log_format_and_emit( log_level_t level,
     char buf[ LOG_MAX_MSG_LEN ];
     uint32_t pos = 0U;
     uint32_t rem;
+    result_t result;
 
     /* "[L] " */
     buf[ pos ] = '[';
@@ -104,7 +106,12 @@ static void log_format_and_emit( log_level_t level,
 
     buf[ pos ] = '\0';
 
-    log_write_output( buf, pos );
+    result = log_write_output( buf, pos );
+
+    if( RES_IS_FAILED( result ) )
+    {
+        s_overflow_count++;
+    }
 }
 
 static bool log_should_emit( log_level_t level )
