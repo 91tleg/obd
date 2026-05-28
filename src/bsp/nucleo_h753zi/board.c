@@ -5,12 +5,13 @@
 #include "bsp/nucleo_h753zi/button.h"
 #include "bsp/nucleo_h753zi/can.h"
 #include "bsp/nucleo_h753zi/wdt.h"
+#include "hal/nvic.h"
 
 result_t board_init( void )
 {
-    __disable_irq();
-
     result_t result;
+
+    nvic_global_disable();
 
     bsp_wdt_init();  /* watchdog running starting from here */
 
@@ -34,7 +35,7 @@ result_t board_init( void )
     bsp_led_green_init();
     bsp_button_init();
 
-    __enable_irq();
+    nvic_global_enable();
 
     return result;
 }
