@@ -8,7 +8,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "stm32h753xx.h"
+#include "cmsis/stm32h753xx.h"
 #include "lib/core/result.h"
 
 #define CAN_FRAME_DATA_LEN  ( 8U )
@@ -63,7 +63,7 @@ typedef struct
  */
 result_t can_init( FDCAN_GlobalTypeDef * p_can,
                    can_timing_t timing,
-                   can_filter_t * filter );
+                   can_filter_t const * filter );
 
 /**
  * Queue a frame for transmission via TX FIFO.
@@ -76,7 +76,7 @@ result_t can_init( FDCAN_GlobalTypeDef * p_can,
  * @return        RES_OK, RES_ERR_INVALID_ARG, or RES_ERR_BUSY.
  */
 result_t can_send( FDCAN_GlobalTypeDef * p_can,
-                   can_frame_t * frame );
+                   can_frame_t const * frame );
 
 /**
  * Receive a frame from RX FIFO0.

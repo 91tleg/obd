@@ -2,7 +2,7 @@
 #define HAL_SYSTICK_H
 
 #include <stdint.h>
-#include "stm32h753xx.h"
+#include "cmsis/stm32h753xx.h"
 
 /**
  * Configure SysTick for 1ms tick at the given core clock frequency.

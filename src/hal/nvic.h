@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "stm32h753xx.h"
+#include "cmsis/stm32h753xx.h"
 
 /* 4 bits of priority — 0 highest, 15 lowest */
 #define NVIC_PRIORITY_MAX   ( 0U )

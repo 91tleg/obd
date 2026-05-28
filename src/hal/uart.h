@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include "stm32h753xx.h"
+#include "cmsis/stm32h753xx.h"
 #include "lib/core/result.h"
 
 typedef enum

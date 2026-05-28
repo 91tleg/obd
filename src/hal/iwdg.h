@@ -6,7 +6,7 @@
 #ifndef HAL_IWDG_H
 #define HAL_IWDG_H
 
-#include "stm32h753xx.h"
+#include "cmsis/stm32h753xx.h"
 
 static inline void iwdg_start( void )
 {

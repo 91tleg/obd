@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "stm32h753xx.h"
+#include "cmsis/stm32h753xx.h"
 
 typedef struct
 {
@@ -401,12 +401,6 @@ static inline void rcc_uart_reset( USART_TypeDef * uart )
     }
 }
 
-static inline uint32_t rcc_get_usart3_clk_freq( void )
-{
-    /* USART3 kernel clock configured to HSI in system_init */
-    return 64000000UL;  /* 64MHz */
-}
-
 static inline uint32_t rcc_get_hclk_freq( void )
 {
     extern uint32_t SystemCoreClock;
@@ -423,9 +417,10 @@ static inline uint32_t rcc_get_pclk1_freq( void )
     return rcc_get_hclk_freq() >> shift;
 }
 
-static inline uint32_t rcc_get_uart4_clk_freq( void )
+static inline uint32_t rcc_get_usart28_clk_freq( void )
 {
-    return rcc_get_pclk1_freq();  /* UART4 uses PCLK1, no kernel mux set */
+    /* D2CCIP2R USART28SEL = 000 */
+    return rcc_get_pclk1_freq();
 }
 
 static inline uint32_t rcc_get_pclk2_freq( void )

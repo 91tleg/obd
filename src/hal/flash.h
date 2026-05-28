@@ -7,7 +7,7 @@
 #define HAL_FLASH_H
 
 #include <stdint.h>
-#include "stm32h753xx.h"
+#include "cmsis/stm32h753xx.h"
 
 static inline void flash_set_latency( uint32_t latency )
 {
