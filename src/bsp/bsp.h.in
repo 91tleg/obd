@@ -6,6 +6,14 @@
 #ifndef BSP_BSP_H
 #define BSP_BSP_H
 
+#include "@BOARD@/board.h"
+#include "@BOARD@/button.h"
+#include "@BOARD@/can.h"
+#include "@BOARD@/clock.h"
+#include "@BOARD@/i2c.h"
+#include "@BOARD@/led.h"
 #include "@BOARD@/systick.h"
+#include "@BOARD@/uart.h"
+#include "@BOARD@/wdt.h"
 
 #endif /* BSP_BSP_H */
