@@ -4,7 +4,8 @@
  */
 
 #include "lib/log/log_output.h"
-#include "bsp/nucleo_h753zi/uart_debug.h"
+#include <stddef.h>
+#include "bsp/nucleo_h753zi/uart.h"
 #include "drivers/uart/uart.h"
 
 result_t log_write_output( const char * buf, uint32_t len )

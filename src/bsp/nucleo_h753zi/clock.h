@@ -7,7 +7,7 @@
 #define BSP_NUCLEO_H753ZI_CLOCK_H
 
 #include <stdint.h>
-#include "resources.h"
+#include "bsp/nucleo_h753zi/resources.h"
 
 static inline uint32_t bsp_clock_sysclk_hz( void )
 {

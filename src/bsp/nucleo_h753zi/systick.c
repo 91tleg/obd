@@ -1,6 +1,6 @@
-#include "systick.h"
+#include "bsp/nucleo_h753zi/systick.h"
+#include "bsp/nucleo_h753zi/resources.h"
 #include "lib/time/delay_tick.h"
-#include "resources.h"
 #include "hal/systick.h"
 
 static volatile uint32_t s_tick = 0U;
