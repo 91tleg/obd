@@ -4,8 +4,8 @@
  *          Satisfies hd44780_i2c.h contract
  */
 
-#include "resources.h"
 #include "drivers/display/hd44780_i2c.h"
+#include "bsp/nucleo_h753zi/resources.h"
 #include "hal/i2c.h"
 
 result_t hd44780_i2c_write( uint8_t dev_addr,
