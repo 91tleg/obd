@@ -7,6 +7,16 @@
 #include "bsp/nucleo_h753zi/wdt.h"
 #include "hal/nvic.h"
 
+__attribute__(( weak )) result_t bsp_uart_obd_init( void )
+{
+    return RES_OK;
+}
+
+__attribute__(( weak )) result_t bsp_can_init( void )
+{
+    return RES_OK;
+}
+
 result_t board_init( void )
 {
     result_t result;
