@@ -160,7 +160,7 @@ bool uart_driver_peek_byte( uart_driver_t * drv, uint8_t * p_data )
     return result;
 }
 
-bool uart_driver_rx_available( const uart_driver_t * drv )
+bool uart_driver_rx_available( uart_driver_t const * drv )
 {
     bool result = false;
 
@@ -172,7 +172,7 @@ bool uart_driver_rx_available( const uart_driver_t * drv )
     return result;
 }
 
-bool uart_driver_tx_busy( const uart_driver_t * drv )
+bool uart_driver_tx_busy( uart_driver_t const * drv )
 {
     bool result = false;
 
@@ -184,7 +184,7 @@ bool uart_driver_tx_busy( const uart_driver_t * drv )
     return result;
 }
 
-uint32_t uart_driver_rx_count( const uart_driver_t * drv )
+uint32_t uart_driver_rx_count( uart_driver_t const * drv )
 {
     uint32_t count = 0U;
 
@@ -196,7 +196,7 @@ uint32_t uart_driver_rx_count( const uart_driver_t * drv )
     return count;
 }
 
-uint32_t uart_driver_tx_free( const uart_driver_t * drv )
+uint32_t uart_driver_tx_free( uart_driver_t const * drv )
 {
     uint32_t free_space = 0U;
 
@@ -216,7 +216,7 @@ void uart_driver_flush_rx( uart_driver_t * drv )
     }
 }
 
-uint32_t uart_driver_error_count( const uart_driver_t * drv )
+uint32_t uart_driver_error_count( uart_driver_t const * drv )
 {
     uint32_t count = 0U;
 
@@ -228,7 +228,7 @@ uint32_t uart_driver_error_count( const uart_driver_t * drv )
     return count;
 }
 
-uint32_t uart_driver_overflow_count( const uart_driver_t * drv )
+uint32_t uart_driver_overflow_count( uart_driver_t const * drv )
 {
     uint32_t count = 0U;
 

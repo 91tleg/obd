@@ -38,7 +38,7 @@ void uart_driver_init( uart_driver_t * p_drv,
 void uart_driver_irq_handler( uart_driver_t * drv );
 
 uint32_t uart_driver_write( uart_driver_t * drv,
-                            uint8_t * p_data,
+                            uint8_t const * p_data,
                             uint32_t len );
 bool uart_driver_write_byte( uart_driver_t * drv,
                              uint8_t data );
@@ -51,12 +51,12 @@ bool uart_driver_read_byte( uart_driver_t * drv,
 bool uart_driver_peek_byte( uart_driver_t * drv,
                             uint8_t * p_data );
 
-bool uart_driver_rx_available( const uart_driver_t * drv );
-bool uart_driver_tx_busy( const uart_driver_t * drv );
-uint32_t uart_driver_rx_count( const uart_driver_t * drv );
-uint32_t uart_driver_tx_free( const uart_driver_t * drv );
+bool uart_driver_rx_available( uart_driver_t const * drv );
+bool uart_driver_tx_busy( uart_driver_t const * drv );
+uint32_t uart_driver_rx_count( uart_driver_t const * drv );
+uint32_t uart_driver_tx_free( uart_driver_t const * drv );
 void uart_driver_flush_rx( uart_driver_t * drv );
-uint32_t uart_driver_error_count( const uart_driver_t * drv );
-uint32_t uart_driver_overflow_count( const uart_driver_t * drv );
+uint32_t uart_driver_error_count( uart_driver_t const * drv );
+uint32_t uart_driver_overflow_count( uart_driver_t const * drv );
 
 #endif /* DRIVERS_UART_H */
