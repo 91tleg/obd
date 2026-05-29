@@ -22,6 +22,9 @@ typedef enum
     RES_ERR_NOT_FOUND   = 8U,   /* device did not respond                */
     RES_ERR_UNSUPPORTED = 9U,   /* operation not supported               */
     RES_ERR_INTERNAL    = 10U,  /* should never happen                   */
+    RES_ERR_PROTOCOL    = 11U,  /* invalid frame, bad sync, unexpected   */
+    RES_ERR_BUSY        = 12U,  /* resource temporarily unavailable      */
+    RES_ERR_REJECTED    = 13U,  /* ECU returned negative response        */
 } result_t;
 
 #define RES_IS_OK( r )     ( ( r ) == RES_OK )
