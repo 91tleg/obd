@@ -4,7 +4,7 @@
  *          Satisfies hd44780_i2c.h contract
  */
 
-#include "drivers/display/hd44780_i2c.h"
+#include "drivers/display/hd44780/hd44780_i2c.h"
 #include "bsp/nucleo_h753zi/resources.h"
 #include "hal/i2c.h"
 
