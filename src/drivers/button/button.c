@@ -1,5 +1,6 @@
 #include "drivers/button/button.h"
 #include "drivers/button/button_callback.h"
+#include <stddef.h>
 
 #define BTN_DEBOUNCE_MS  ( 20U )
 #define BTN_HOLD_MS      ( 500U )
@@ -90,7 +91,7 @@ btn_event_t btn_get_event( btn_t * p_btn )
     return event;
 }
 
-bool btn_is_pressed( const btn_t * p_btn )
+bool btn_is_pressed( btn_t const * p_btn )
 {
     bool result = false;
 
