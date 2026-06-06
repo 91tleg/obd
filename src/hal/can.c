@@ -1,12 +1,15 @@
 /**
  * @file    can.c
- * @brief   STM32H753 FDCAN HAL implementation.
+ * @brief   STM32H753 FDCAN HAL implementation. Classic CAN and CAN FD 64-byte.
  *
- * Message RAM layout (per peripheral, offsets from peripheral RAM base):
+ * Message RAM layout (per peripheral):
  *
- *   0x000  Standard ID filter list  (1 element  × 4 B  =   4 B)
- *   0x004  RX FIFO 0                (8 elements × 16 B = 128 B)
- *   0x084  TX FIFO                  (8 elements × 16 B = 128 B)
+ *   0x000  Standard ID filter list  ( 1 element ×  4 B =   4 B)
+ *   0x004  RX FIFO 0                ( 8 elements × 72 B = 576 B)
+ *   0x244  TX FIFO                  ( 8 elements × 72 B = 576 B)
+ *
+ * Each FD element = 2 header words (8 B) + 16 data words (64 B) = 72 bytes.
+ * RXESC and TXESC are set to 0x7 to select the 64-byte payload size.
  */
 
 #include "can.h"
@@ -20,23 +23,54 @@
 #define NUM_RX_FIFO0_ELEMENTS  ( 8U )
 #define NUM_TX_FIFO_ELEMENTS   ( 8U )
 
-/* Each classic-CAN element is 2 header words + 2 data words = 16 bytes. */
-#define CAN_ELEMENT_SIZE_BYTES ( 16U )
+/*
+ * CAN FD 64-byte element layout in message RAM:
+ *   2 header words + 16 data words = 18 words = 72 bytes per element.
+ */
+#define CAN_FD_HEADER_WORDS    ( 2U )
+#define CAN_FD_DATA_WORDS      ( 16U )   /* 16 × 4 = 64 bytes */
+#define CAN_FD_ELEMENT_WORDS   ( CAN_FD_HEADER_WORDS + CAN_FD_DATA_WORDS )
+#define CAN_ELEMENT_SIZE_BYTES ( CAN_FD_ELEMENT_WORDS * 4U )   /* 72 bytes */
 
 #define RAM_OFF_STD_FILTER  ( 0x000U )
 #define RAM_OFF_RXF0        ( RAM_OFF_STD_FILTER + ( NUM_STD_FILTERS * 4U ) )
-#define RAM_OFF_TXF         ( RAM_OFF_RXF0 + ( NUM_RX_FIFO0_ELEMENTS * CAN_ELEMENT_SIZE_BYTES ) )
+#define RAM_OFF_TXF         ( RAM_OFF_RXF0 + \
+                              ( NUM_RX_FIFO0_ELEMENTS * CAN_ELEMENT_SIZE_BYTES ) )
 
-#define STD_FILTER_SFEC_RXF0   ( 0x3U )   /**< Store matching frames in RX FIFO 0. */
-#define STD_FILTER_SFT_RANGE   ( 0x1U )   /**< Range filter: accept SFID2..SFID1.  */
+/* RXESC / TXESC: data field size = 111b: 64 bytes */
+#define ESC_64_BYTES           ( 0x7U )
 
+#define STD_FILTER_SFEC_RXF0   ( 0x3U )
+#define STD_FILTER_SFT_RANGE   ( 0x1U )
 #define STD_FILTER_SFEC_Pos    ( 30U )
 #define STD_FILTER_SFT_Pos     ( 27U )
 #define STD_FILTER_SFID1_Pos   ( 16U )
 #define STD_FILTER_SFID2_Pos   (  0U )
 #define STD_FILTER_ID_MASK     ( 0x7FFU )
 
+/* TX/RX buffer element word 1 bit positions */
 #define TXBE_T1_DLC_Pos        ( 16U )
+#define TXBE_T1_BRS_Pos        ( 20U )   /* Bit Rate Switch         */
+#define TXBE_T1_FDF_Pos        ( 21U )   /* FD Format               */
+
+/* RX buffer element word 1 bit positions */
+#define RXBE_R1_DLC_Pos        ( 16U )
+#define RXBE_R1_BRS_Pos        ( 20U )
+#define RXBE_R1_FDF_Pos        ( 21U )
+
+/*
+ * Convert raw DLC value (0–15) to payload byte count.
+ * CAN FD encoding: 0–8 map 1:1; 9–15 map to 12,16,20,24,32,48,64.
+ */
+static uint32_t dlc_to_bytes( uint8_t dlc )
+{
+    static const uint8_t fd_dlc_table[ 16U ] =
+    {
+        0U, 1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U,
+        12U, 16U, 20U, 24U, 32U, 48U, 64U
+    };
+    return ( dlc <= 15U ) ? fd_dlc_table[ dlc ] : 0U;
+}
 
 static uint32_t ram_base( FDCAN_GlobalTypeDef const * p_can )
 {
@@ -65,17 +99,17 @@ static bool timed_out( uint32_t start, uint32_t timeout_ms )
 
 result_t can_init( FDCAN_GlobalTypeDef * p_can,
                    can_timing_t timing,
+                   can_data_timing_t data_timing,
                    can_filter_t const * filter )
 {
     result_t result = RES_ERR_INVALID_ARG;
 
     if( ( p_can != NULL ) && ( filter != NULL ) )
     {
-        uint32_t   start = 0U;
-        uint32_t   base  = 0U;
-        uint32_t * ram   = NULL;
+        uint32_t start;
+        uint32_t base;
+        uint32_t * ram;
 
-        /* Request init mode. */
         p_can->CCCR |= FDCAN_CCCR_INIT;
         start = delay_get_tick();
 
@@ -91,70 +125,63 @@ result_t can_init( FDCAN_GlobalTypeDef * p_can,
         }
         else
         {
-            /* Enable configuration change. */
             p_can->CCCR |= FDCAN_CCCR_CCE;
 
+            /* Nominal bit timing */
             p_can->NBTP = timing;
 
             /*
-             * SIDFC: standard filter list start address and element count.
-             * FLSSA is the word address shifted to the correct bit position;
-             * the offset is in bytes so we shift right by 2 to get words.
+             * Data-phase bit timing for BRS.
+             * If data_timing is 0 the DBTP reset value is used which is
+             * harmless — BRS frames simply won't switch rate.
              */
+            if( data_timing != 0U )
+            {
+                p_can->DBTP = data_timing;
+            }
+
+            /* Enable FD operation (FDOE) and optionally BRS (BRSE). */
+            p_can->CCCR |= FDCAN_CCCR_FDOE;
+            if( data_timing != 0U )
+            {
+                p_can->CCCR |= FDCAN_CCCR_BRSE;
+            }
+
             p_can->SIDFC =
                 ( ( ( RAM_OFF_STD_FILTER >> 2U ) << FDCAN_SIDFC_FLSSA_Pos ) &
                     FDCAN_SIDFC_FLSSA_Msk ) |
                 ( NUM_STD_FILTERS << FDCAN_SIDFC_LSS_Pos );
 
-            /*
-             * RXF0C: RX FIFO 0 start address and element count.
-             * F0SA is the word address of the FIFO start.
-             */
             p_can->RXF0C =
                 ( ( ( RAM_OFF_RXF0 >> 2U ) << FDCAN_RXF0C_F0SA_Pos ) &
                     FDCAN_RXF0C_F0SA_Msk ) |
                 ( NUM_RX_FIFO0_ELEMENTS << FDCAN_RXF0C_F0S_Pos );
 
-            /*
-             * TXBC: TX buffer start address and FIFO element count.
-             * TBSA is the word address of the TX buffer start.
-             */
             p_can->TXBC =
                 ( ( ( RAM_OFF_TXF >> 2U ) << FDCAN_TXBC_TBSA_Pos ) &
                     FDCAN_TXBC_TBSA_Msk ) |
                 ( NUM_TX_FIFO_ELEMENTS << FDCAN_TXBC_TFQS_Pos );
 
             /*
-             * RXESC / TXESC: 0 = 8-byte data field (default after reset).
-             * Written explicitly so the intent is clear and reset-value
-             * reliance is not silently assumed.
+             * RXESC / TXESC: set data field size to 64 bytes (value 0x7).
+             * Both RX FIFO 0 (F0DS) and TX buffers (TBDS) must match.
              */
-            p_can->RXESC = 0U;
-            p_can->TXESC = 0U;
+            p_can->RXESC = ( ESC_64_BYTES << FDCAN_RXESC_F0DS_Pos );
+            p_can->TXESC = ( ESC_64_BYTES << FDCAN_TXESC_TBDS_Pos );
 
             base = ram_base( p_can );
             ram  = ( uint32_t * )( base + RAM_OFF_STD_FILTER );
 
-            /*
-             * Single range filter element (word 0 only for std-ID filters):
-             *   SFEC = 0x3   store matching frames in RX FIFO 0
-             *   SFT  = 0x1   range filter (SFID2 ≤ ID ≤ SFID1)
-             *   SFID1        upper bound (id_high)
-             *   SFID2        lower bound (id_low)
-             */
             *ram =
-                ( ( STD_FILTER_SFEC_RXF0                           ) << STD_FILTER_SFEC_Pos  ) |
-                ( ( STD_FILTER_SFT_RANGE                           ) << STD_FILTER_SFT_Pos   ) |
-                ( ( filter->id_high & STD_FILTER_ID_MASK           ) << STD_FILTER_SFID1_Pos ) |
-                ( ( filter->id_low  & STD_FILTER_ID_MASK           ) << STD_FILTER_SFID2_Pos );
+                ( ( STD_FILTER_SFEC_RXF0                 ) << STD_FILTER_SFEC_Pos  ) |
+                ( ( STD_FILTER_SFT_RANGE                 ) << STD_FILTER_SFT_Pos   ) |
+                ( ( filter->id_high & STD_FILTER_ID_MASK ) << STD_FILTER_SFID1_Pos ) |
+                ( ( filter->id_low  & STD_FILTER_ID_MASK ) << STD_FILTER_SFID2_Pos );
 
-            /* Reject all non-matching standard and extended frames. */
             p_can->GFC = ( FDCAN_GFC_ANFE_Msk | FDCAN_GFC_ANFS_Msk );
 
-            /* Leave init mode */
             p_can->CCCR &= ~( FDCAN_CCCR_CCE | FDCAN_CCCR_INIT );
             start = delay_get_tick();
-
             while( ( ( p_can->CCCR & FDCAN_CCCR_INIT ) != 0U ) &&
                    ( !timed_out( start, 10U ) ) )
             {
@@ -190,31 +217,42 @@ result_t can_send( FDCAN_GlobalTypeDef * p_can,
             uint32_t * elem = ( uint32_t * )
                 ( base + RAM_OFF_TXF + ( put_idx * CAN_ELEMENT_SIZE_BYTES ) );
 
-            /*
-             * T0: standard ID in bits [28:18], XTD=0 (std), RTR=0 (data frame).
-             * The ID occupies the same position as the RX R0 field so the
-             * same >> 18 extraction works on receive.
-             */
-            elem[ 0 ] = ( frame->id & STD_FILTER_ID_MASK ) << 18U;
+            /* T0: standard ID in bits [28:18] */
+            elem[ 0U ] = ( frame->id & STD_FILTER_ID_MASK ) << 18U;
 
             /*
-             * T1: DLC in bits [19:16].
-             * frame->dlc is the classical DLC (0–8), identical to the
-             * FDCAN DLC encoding for payloads ≤ 8 bytes.
+             * T1: DLC [19:16], BRS [20], FDF [21].
+             * FDF must be set for any FD frame.
+             * BRS enables the data-phase bit-rate switch.
              */
-            elem[ 1 ] = ( ( uint32_t )frame->dlc & 0xFU ) << TXBE_T1_DLC_Pos;
+            elem[ 1U ] = ( ( uint32_t )frame->dlc & 0xFU ) << TXBE_T1_DLC_Pos;
+            if( frame->fd )
+            {
+                elem[ 1U ] |= ( 1U << TXBE_T1_FDF_Pos );
+            }
+            if( frame->brs && frame->fd )
+            {
+                elem[ 1U ] |= ( 1U << TXBE_T1_BRS_Pos );
+            }
 
-            /* T2, T3: data bytes, little-endian within each word. */
-            elem[ 2 ] = ( ( uint32_t )frame->data[ 0 ]        ) |
-                        ( ( uint32_t )frame->data[ 1 ] <<  8U ) |
-                        ( ( uint32_t )frame->data[ 2 ] << 16U ) |
-                        ( ( uint32_t )frame->data[ 3 ] << 24U );
-            elem[ 3 ] = ( ( uint32_t )frame->data[ 4 ]        ) |
-                        ( ( uint32_t )frame->data[ 5 ] <<  8U ) |
-                        ( ( uint32_t )frame->data[ 6 ] << 16U ) |
-                        ( ( uint32_t )frame->data[ 7 ] << 24U );
+            /*
+             * Data words: pack bytes into 32-bit words, little-endian.
+             * Write all CAN_FD_DATA_WORDS words regardless of actual payload
+             * size — unused words are irrelevant (DLC controls how many bytes
+             * the receiver reads) but zeroing them avoids stale RAM data.
+             */
+            uint32_t byte_count = dlc_to_bytes( frame->dlc );
 
-            /* Request transmission of the filled element. */
+            for( uint32_t w = 0U; w < CAN_FD_DATA_WORDS; ++w )
+            {
+                uint32_t b = w * 4U;
+                elem[ CAN_FD_HEADER_WORDS + w ] =
+                    ( ( b + 0U < byte_count ) ? ( ( uint32_t )frame->data[ b + 0U ]        ) : 0U ) |
+                    ( ( b + 1U < byte_count ) ? ( ( uint32_t )frame->data[ b + 1U ] <<  8U ) : 0U ) |
+                    ( ( b + 2U < byte_count ) ? ( ( uint32_t )frame->data[ b + 2U ] << 16U ) : 0U ) |
+                    ( ( b + 3U < byte_count ) ? ( ( uint32_t )frame->data[ b + 3U ] << 24U ) : 0U );
+            }
+
             p_can->TXBAR = ( 1U << put_idx );
             result = RES_OK;
         }
@@ -261,28 +299,29 @@ result_t can_recv( FDCAN_GlobalTypeDef * p_can,
             uint32_t * elem = ( uint32_t * )
                 ( base + RAM_OFF_RXF0 + ( get_idx * CAN_ELEMENT_SIZE_BYTES ) );
 
-            /*
-             * R0: standard ID in bits [28:18].
-             */
-            frame->id = ( elem[ 0 ] >> 18U ) & STD_FILTER_ID_MASK;
+            /* R0: standard ID */
+            frame->id = ( elem[ 0U ] >> 18U ) & STD_FILTER_ID_MASK;
 
-            /*
-             * R1: DLC in bits [19:16].
-             * For classic CAN (RXESC=0) values 0–8 map directly to byte count.
-             */
-            frame->dlc = ( uint8_t )( ( elem[ 1 ] >> TXBE_T1_DLC_Pos ) & 0xFU );
+            /* R1: DLC, FDF, BRS */
+            frame->dlc = ( uint8_t )
+                ( ( elem[ 1U ] >> RXBE_R1_DLC_Pos ) & 0xFU );
+            frame->fd  = ( ( elem[ 1U ] >> RXBE_R1_FDF_Pos ) & 1U ) != 0U;
+            frame->brs = ( ( elem[ 1U ] >> RXBE_R1_BRS_Pos ) & 1U ) != 0U;
 
-            /* R2, R3: data bytes. */
-            frame->data[ 0 ] = ( uint8_t )( elem[ 2 ]        );
-            frame->data[ 1 ] = ( uint8_t )( elem[ 2 ] >>  8U );
-            frame->data[ 2 ] = ( uint8_t )( elem[ 2 ] >> 16U );
-            frame->data[ 3 ] = ( uint8_t )( elem[ 2 ] >> 24U );
-            frame->data[ 4 ] = ( uint8_t )( elem[ 3 ]        );
-            frame->data[ 5 ] = ( uint8_t )( elem[ 3 ] >>  8U );
-            frame->data[ 6 ] = ( uint8_t )( elem[ 3 ] >> 16U );
-            frame->data[ 7 ] = ( uint8_t )( elem[ 3 ] >> 24U );
+            /* Data words: unpack all up to actual payload length */
+            uint32_t byte_count = dlc_to_bytes( frame->dlc );
 
-            /* Acknowledge: release the element back to hardware. */
+            for( uint32_t w = 0U; w < CAN_FD_DATA_WORDS; ++w )
+            {
+                uint32_t word = elem[ CAN_FD_HEADER_WORDS + w ];
+                uint32_t b    = w * 4U;
+
+                if( b + 0U < byte_count ) { frame->data[ b + 0U ] = ( uint8_t )( word        ); }
+                if( b + 1U < byte_count ) { frame->data[ b + 1U ] = ( uint8_t )( word >>  8U ); }
+                if( b + 2U < byte_count ) { frame->data[ b + 2U ] = ( uint8_t )( word >> 16U ); }
+                if( b + 3U < byte_count ) { frame->data[ b + 3U ] = ( uint8_t )( word >> 24U ); }
+            }
+
             p_can->RXF0A = get_idx;
         }
     }

@@ -1,6 +1,6 @@
 /**
  * @file    can.h
- * @brief   STM32H753 FDCAN HAL.
+ * @brief   STM32H753 FDCAN HAL — supports Classic CAN (8 B) and CAN FD (64 B).
  */
 
 #ifndef HAL_CAN_H
@@ -11,14 +11,16 @@
 #include "cmsis/stm32h753xx.h"
 #include "lib/core/result.h"
 
-#define CAN_FRAME_DATA_LEN  ( 8U )
+#define CAN_FRAME_DATA_LEN     ( 8U )
+#define CAN_FRAME_FD_DATA_LEN  ( 64U )
 
 typedef struct
 {
     uint32_t id;
-    uint8_t  data[ CAN_FRAME_DATA_LEN ];
-    uint8_t  dlc;
-    uint8_t  pad[ 3U ];
+    uint8_t  data[ CAN_FRAME_FD_DATA_LEN ];  /* sized for FD; classic uses [0..7] */
+    uint8_t  dlc;    /* raw DLC value 0–15 — for FD, 9=12B 10=16B ... 15=64B      */
+    bool     fd;     /* true = CAN FD frame (FDF bit)                             */
+    bool     brs;    /* true = bit-rate switch (BRS bit); only valid when fd=true */
 } can_frame_t;
 
 /**
@@ -36,11 +38,23 @@ typedef uint32_t can_timing_t;
  * @param tseg1  Time segment 1       (2–256, prop + phase1)
  * @param tseg2  Time segment 2       (2–128, phase2)
  */
-#define CAN_NBTP( sjw, brp, tseg1, tseg2 )                           \
+#define CAN_NBTP( sjw, brp, tseg1, tseg2 )                          \
     ( ( ( uint32_t )( (sjw)   - 1U ) << FDCAN_NBTP_NSJW_Pos   ) |   \
       ( ( uint32_t )( (brp)   - 1U ) << FDCAN_NBTP_NBRP_Pos   ) |   \
       ( ( uint32_t )( (tseg1) - 1U ) << FDCAN_NBTP_NTSEG1_Pos ) |   \
       ( ( uint32_t )( (tseg2) - 1U ) << FDCAN_NBTP_NTSEG2_Pos ) )
+
+/**
+ * Data-phase bit timing (DBTP register) for CAN FD BRS mode.
+ * Only needed when using bit-rate switch.
+ */
+typedef uint32_t can_data_timing_t;
+
+#define CAN_DBTP( dsjw, dbrp, dtseg1, dtseg2 )                      \
+    ( ( ( uint32_t )( (dsjw)   - 1U ) << FDCAN_DBTP_DSJW_Pos   ) |  \
+      ( ( uint32_t )( (dbrp)   - 1U ) << FDCAN_DBTP_DBRP_Pos   ) |  \
+      ( ( uint32_t )( (dtseg1) - 1U ) << FDCAN_DBTP_DTSEG1_Pos ) |  \
+      ( ( uint32_t )( (dtseg2) - 1U ) << FDCAN_DBTP_DTSEG2_Pos ) )
 
 typedef struct
 {
@@ -63,13 +77,14 @@ typedef struct
  */
 result_t can_init( FDCAN_GlobalTypeDef * p_can,
                    can_timing_t timing,
+                   can_data_timing_t data_timing,
                    can_filter_t const * filter );
 
 /**
  * Queue a frame for transmission via TX FIFO.
  *
- * Non-blocking. Returns RES_ERR_BUSY immediately if the TX FIFO is full.
- * frame->dlc must be <= 8.
+ * For Classic CAN (fd=false), dlc must be 0..8.
+ * For CAN FD (fd=true), dlc must be a valid FD DLC value 0..15.
  *
  * @param p_can   Pointer to FDCAN1 or FDCAN2 peripheral.
  * @param frame   Frame to transmit (not modified).
