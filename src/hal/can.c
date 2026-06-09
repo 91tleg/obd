@@ -17,7 +17,7 @@
 #include "lib/time/delay_tick.h"
 
 #define FDCAN1_RAM_BASE  ( SRAMCAN_BASE )
-#define FDCAN2_RAM_BASE  ( SRAMCAN_BASE + 0x0550U )
+#define FDCAN2_RAM_BASE  ( SRAMCAN_BASE + 0x0484U )  /* 1156 = 0x484 */
 
 #define NUM_STD_FILTERS        ( 1U )
 #define NUM_RX_FIFO0_ELEMENTS  ( 8U )

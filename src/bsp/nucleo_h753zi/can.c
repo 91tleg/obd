@@ -8,6 +8,14 @@ result_t bsp_can_init( void )
 {
     static can_timing_t const s_can_timing = CAN_NBTP( 10U, 1U, 29U, 10U );
 
+    /*
+     * No data-phase timing — CAN FD frames will use the nominal bit rate
+     * for both arbitration and data phases (BRS disabled).
+     *
+     * If BRS is needed later, construct with: CAN_DBTP( dsjw, dbrp, dtseg1, dtseg2 )
+     */
+    static can_data_timing_t const s_data_timing = 0U;
+
     static can_filter_t const s_can_filter =
     {
         .id_low  = 0x7E8U,   /* CAN_TP_OBD_RESP_BASE */
@@ -30,5 +38,5 @@ result_t bsp_can_init( void )
     gpio_set_pull(  BSP_CAN_RX_PORT, BSP_CAN_RX_PIN, GPIO_PULL_NONE       );
     gpio_set_otype( BSP_CAN_RX_PORT, BSP_CAN_RX_PIN, GPIO_OTYPE_PUSH_PULL );
 
-    return can_init( BSP_CAN, s_can_timing, &s_can_filter );
+    return can_init( BSP_CAN, s_can_timing, s_data_timing, &s_can_filter );
 }
