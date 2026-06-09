@@ -23,11 +23,13 @@ if( CPPCHECK )
     add_custom_target(cppcheck
         COMMAND ${CPPCHECK}
             ${MISRA_ADDON}
+            --check-level=exhaustive
             --suppressions-list=${CMAKE_SOURCE_DIR}/cppcheck-suppressions.txt
             --enable=all
             --error-exitcode=1
             --platform=arm32-wchar_t2
             --suppress=missingIncludeSystem
+            -i${CMAKE_SOURCE_DIR}/src/cmsis
             --project=${CMAKE_BINARY_DIR}/compile_commands.json
         COMMENT "Running cppcheck MISRA analysis"
         VERBATIM
