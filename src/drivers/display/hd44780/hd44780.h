@@ -28,16 +28,16 @@ typedef struct
 } hd44780_t;
 
 result_t hd44780_init( hd44780_t * p_dev, uint8_t dev_addr );
-result_t hd44780_clear( hd44780_t * p_dev );
-result_t hd44780_home( hd44780_t * p_dev );
-result_t hd44780_display_on( hd44780_t * p_dev );
-result_t hd44780_display_off( hd44780_t * p_dev );
+result_t hd44780_clear( hd44780_t const * p_dev );
+result_t hd44780_home( hd44780_t const * p_dev );
+result_t hd44780_display_on( hd44780_t const * p_dev );
+result_t hd44780_display_off( hd44780_t const * p_dev );
 result_t hd44780_backlight( hd44780_t * p_dev, bool on );
-result_t hd44780_set_cursor( hd44780_t * p_dev, uint8_t col,
+result_t hd44780_set_cursor( hd44780_t const * p_dev, uint8_t col,
                              hd44780_row_t row );
-result_t hd44780_write_char( hd44780_t * p_dev, char c );
-result_t hd44780_write_str( hd44780_t * p_dev,
-                            const char * p_str,
+result_t hd44780_write_char( hd44780_t const * p_dev, char c );
+result_t hd44780_write_str( hd44780_t const * p_dev,
+                            char const * p_str,
                             uint32_t max_len );
 
 #endif /* DRIVERS_DISPLAY_HD44780_H */

@@ -1,5 +1,5 @@
-#include "hd44780.h"
-#include "hd44780_i2c.h"
+#include "drivers/display/hd44780/hd44780.h"
+#include "drivers/display/hd44780/hd44780_i2c.h"
 #include <stddef.h>
 #include "lib/time/delay.h"
 
@@ -30,17 +30,17 @@
 #define EN_PULSE_US      ( 1U )
 #define I2C_TIMEOUT_MS   ( 10U )
 
-static uint8_t bl_flag( const hd44780_t * p_dev )
+static uint8_t bl_flag( hd44780_t const * p_dev )
 {
     return p_dev->backlight ? PCF_BL : 0U;
 }
 
-static result_t i2c_write_byte( const hd44780_t * p_dev, uint8_t data )
+static result_t i2c_write_byte( hd44780_t const * p_dev, uint8_t data )
 {
     return hd44780_i2c_write( p_dev->dev_addr, data, I2C_TIMEOUT_MS );
 }
 
-static result_t en_pulse( const hd44780_t * p_dev, uint8_t data )
+static result_t en_pulse( hd44780_t const * p_dev, uint8_t data )
 {
     result_t result = i2c_write_byte( p_dev, data | PCF_EN );
 
@@ -53,7 +53,7 @@ static result_t en_pulse( const hd44780_t * p_dev, uint8_t data )
     return result;
 }
 
-static result_t write_nibble( const hd44780_t * p_dev,
+static result_t write_nibble( hd44780_t const * p_dev,
                               uint8_t nibble,
                               bool is_data )
 {
@@ -64,7 +64,7 @@ static result_t write_nibble( const hd44780_t * p_dev,
     return en_pulse( p_dev, data );
 }
 
-static result_t write_byte( const hd44780_t * p_dev,
+static result_t write_byte( hd44780_t const * p_dev,
                             uint8_t byte,
                             bool is_data )
 {
@@ -80,7 +80,7 @@ static result_t write_byte( const hd44780_t * p_dev,
     return result;
 }
 
-static result_t send_cmd( const hd44780_t * p_dev, uint8_t cmd )
+static result_t send_cmd( hd44780_t const * p_dev, uint8_t cmd )
 {
     result_t result = write_byte( p_dev, cmd, false );
 
@@ -92,7 +92,7 @@ static result_t send_cmd( const hd44780_t * p_dev, uint8_t cmd )
     return result;
 }
 
-static result_t send_data( const hd44780_t * p_dev, uint8_t data )
+static result_t send_data( hd44780_t const * p_dev, uint8_t data )
 {
     result_t result = write_byte( p_dev, data, true );
 
@@ -171,7 +171,7 @@ result_t hd44780_init( hd44780_t * p_dev, uint8_t dev_addr )
     return result;
 }
 
-result_t hd44780_clear( hd44780_t * p_dev )
+result_t hd44780_clear( hd44780_t const * p_dev )
 {
     result_t result = RES_ERR_INVALID_ARG;
 
@@ -188,7 +188,7 @@ result_t hd44780_clear( hd44780_t * p_dev )
     return result;
 }
 
-result_t hd44780_home( hd44780_t * p_dev )
+result_t hd44780_home( hd44780_t const * p_dev )
 {
     result_t result = RES_ERR_INVALID_ARG;
 
@@ -200,7 +200,7 @@ result_t hd44780_home( hd44780_t * p_dev )
     return result;
 }
 
-result_t hd44780_display_on( hd44780_t *p_dev )
+result_t hd44780_display_on( hd44780_t const * p_dev )
 {
     result_t result = RES_ERR_INVALID_ARG;
 
@@ -212,7 +212,7 @@ result_t hd44780_display_on( hd44780_t *p_dev )
     return result;
 }
 
-result_t hd44780_display_off( hd44780_t * p_dev )
+result_t hd44780_display_off( hd44780_t const * p_dev )
 {
     result_t result = RES_ERR_INVALID_ARG;
 
@@ -237,7 +237,7 @@ result_t hd44780_backlight( hd44780_t * p_dev, bool on )
     return result;
 }
 
-result_t hd44780_set_cursor( hd44780_t * p_dev,
+result_t hd44780_set_cursor( hd44780_t const * p_dev,
                              uint8_t col,
                              hd44780_row_t row )
 {
@@ -255,7 +255,7 @@ result_t hd44780_set_cursor( hd44780_t * p_dev,
     return result;
 }
 
-result_t hd44780_write_char( hd44780_t * p_dev, char c )
+result_t hd44780_write_char( hd44780_t const * p_dev, char c )
 {
     result_t result = RES_ERR_INVALID_ARG;
 
@@ -267,8 +267,8 @@ result_t hd44780_write_char( hd44780_t * p_dev, char c )
     return result;
 }
 
-result_t hd44780_write_str( hd44780_t * p_dev,
-                            const char * p_str,
+result_t hd44780_write_str( hd44780_t const * p_dev,
+                            char const * p_str,
                             uint32_t max_len )
 {
     result_t result = RES_ERR_INVALID_ARG;
