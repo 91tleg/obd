@@ -3,4 +3,7 @@ configure_file(
     ${CMAKE_BINARY_DIR}/generated/bsp/bsp.h
 )
 
-add_subdirectory(${BOARD})
+add_subdirectory(
+    ${CMAKE_SOURCE_DIR}/src/bsp/${BOARD}
+    ${CMAKE_BINARY_DIR}/bsp/${BOARD}
+)
