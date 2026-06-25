@@ -1,0 +1,56 @@
+name: CI 
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install ARM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi cmake ninja-build
+
+      - name: Verify toolchain
+        run: arm-none-eabi-gcc --version
+
+      - name: Configure debug
+        run: |
+          cmake -B build/debug \
+                -DCMAKE_BUILD_TYPE=Debug \
+                -DBOARD=nucleo_h753zi \
+                -G Ninja
+
+      - name: Build debug
+        run: cmake --build build/debug
+
+      - name: Configure release
+        run: |
+          cmake -B build/release \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DBOARD=nucleo_h753zi \
+                -G Ninja
+
+      - name: Build release
+        run: cmake --build build/release
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: |
+            build/release/firmware.elf
+            build/release/firmware.bin
+            build/release/firmware.hex
+            build/release/firmware.map
+          retention-days: 30
