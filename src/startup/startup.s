@@ -127,7 +127,7 @@ g_pfn_vectors:
     .word usart1_irq_handler        /* USART1                */
     .word usart2_irq_handler        /* USART2                */
     .word usart3_irq_handler        /* USART3                */
-    .word default_handler           /* EXTI15..10            */
+    .word exti15_10_irq_handler     /* EXTI15..10            */
     .word default_handler           /* RTC alarm             */
     .word 0                         /* reserved              */
     .word default_handler           /* TIM8 BRK / TIM12      */
@@ -276,3 +276,5 @@ g_pfn_vectors:
     .thumb_set uart7_irq_handler, default_handler
     .weak uart8_irq_handler
     .thumb_set uart8_irq_handler, default_handler
+    .weak exti15_10_irq_handler
+    .thumb_set exti15_10_irq_handler, default_handler

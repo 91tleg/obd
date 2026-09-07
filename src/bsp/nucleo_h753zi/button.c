@@ -35,7 +35,7 @@ btn_event_t bsp_button_get_event( void )
     return btn_get_event( &s_user_btn );
 }
 
-void EXTI15_10_IRQHandler( void )
+void exti15_10_irq_handler( void )
 {
     if( exti_is_pending( BSP_BTN_USER_PIN ) )
     {
