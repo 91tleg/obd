@@ -14,6 +14,14 @@
 #define CAN_FRAME_DATA_LEN     ( 8U )
 #define CAN_FRAME_FD_DATA_LEN  ( 64U )
 
+#define CAN_FD_DLC_12   ( 9U  )
+#define CAN_FD_DLC_16   ( 10U )
+#define CAN_FD_DLC_20   ( 11U )
+#define CAN_FD_DLC_24   ( 12U )
+#define CAN_FD_DLC_32   ( 13U )
+#define CAN_FD_DLC_48   ( 14U )
+#define CAN_FD_DLC_64   ( 15U )
+
 typedef struct
 {
     uint32_t id;
@@ -108,5 +116,21 @@ result_t can_send( FDCAN_GlobalTypeDef * p_can,
 result_t can_recv( FDCAN_GlobalTypeDef * p_can,
                    can_frame_t * frame,
                    uint32_t timeout_ms );
+
+/**
+ * Initialize an FDCAN peripheral in internal loopback mode.
+ *
+ * Same message RAM / bit timing / filter setup as can_init(), but
+ * routes back to RX internally.
+ *
+ * @param p_can   Pointer to FDCAN peripheral.
+ * @param timing  NBTP register value.
+ * @param filter  Standard ID range filter (id_low..id_high, inclusive).
+ * @return        RES_OK, RES_ERR_INVALID_ARG, or RES_ERR_TIMEOUT.
+ */
+result_t can_init_loopback( FDCAN_GlobalTypeDef * p_can,
+                            can_timing_t timing,
+                            can_data_timing_t data_timing,
+                            can_filter_t const * filter );
 
 #endif /* HAL_CAN_H */

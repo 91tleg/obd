@@ -328,3 +328,96 @@ result_t can_recv( FDCAN_GlobalTypeDef * p_can,
 
     return res;
 }
+
+result_t can_init_loopback( FDCAN_GlobalTypeDef * p_can,
+                            can_timing_t timing,
+                            can_data_timing_t data_timing,
+                            can_filter_t const * filter )
+{
+    result_t result = RES_ERR_INVALID_ARG;
+
+    if( ( p_can != NULL ) && ( filter != NULL ) )
+    {
+        uint32_t start;
+        uint32_t base;
+        uint32_t * ram;
+
+        p_can->CCCR |= FDCAN_CCCR_INIT;
+        start = delay_get_tick();
+
+        while( ( ( p_can->CCCR & FDCAN_CCCR_INIT ) == 0U ) &&
+               ( !timed_out( start, 10U ) ) )
+        {
+            /* wait for hardware to acknowledge init mode */
+        }
+
+        if( ( p_can->CCCR & FDCAN_CCCR_INIT ) == 0U )
+        {
+            result = RES_ERR_TIMEOUT;
+        }
+        else
+        {
+            p_can->CCCR |= FDCAN_CCCR_CCE;
+
+            /* TX internally wired to RX */
+            p_can->CCCR |= FDCAN_CCCR_TEST;
+            p_can->TEST  = FDCAN_TEST_LBCK;
+
+            p_can->NBTP = timing;
+
+            if( data_timing != 0U )
+            {
+                p_can->DBTP = data_timing;
+            }
+
+            p_can->CCCR |= FDCAN_CCCR_FDOE;
+            if( data_timing != 0U )
+            {
+                p_can->CCCR |= FDCAN_CCCR_BRSE;
+            }
+
+            p_can->SIDFC =
+                ( ( ( RAM_OFF_STD_FILTER >> 2U ) << FDCAN_SIDFC_FLSSA_Pos ) &
+                    FDCAN_SIDFC_FLSSA_Msk ) |
+                ( NUM_STD_FILTERS << FDCAN_SIDFC_LSS_Pos );
+
+            p_can->RXF0C =
+                ( ( ( RAM_OFF_RXF0 >> 2U ) << FDCAN_RXF0C_F0SA_Pos ) &
+                    FDCAN_RXF0C_F0SA_Msk ) |
+                ( NUM_RX_FIFO0_ELEMENTS << FDCAN_RXF0C_F0S_Pos );
+
+            p_can->TXBC =
+                ( ( ( RAM_OFF_TXF >> 2U ) << FDCAN_TXBC_TBSA_Pos ) &
+                    FDCAN_TXBC_TBSA_Msk ) |
+                ( NUM_TX_FIFO_ELEMENTS << FDCAN_TXBC_TFQS_Pos );
+
+            p_can->RXESC = ( ESC_64_BYTES << FDCAN_RXESC_F0DS_Pos );
+            p_can->TXESC = ( ESC_64_BYTES << FDCAN_TXESC_TBDS_Pos );
+
+            base = ram_base( p_can );
+            ram  = ( uint32_t * )( base + RAM_OFF_STD_FILTER );
+
+            *ram =
+                ( ( STD_FILTER_SFEC_RXF0                 ) << STD_FILTER_SFEC_Pos  ) |
+                ( ( STD_FILTER_SFT_RANGE                 ) << STD_FILTER_SFT_Pos   ) |
+                ( ( filter->id_high & STD_FILTER_ID_MASK ) << STD_FILTER_SFID1_Pos ) |
+                ( ( filter->id_low  & STD_FILTER_ID_MASK ) << STD_FILTER_SFID2_Pos );
+
+            p_can->GFC = ( FDCAN_GFC_ANFE_Msk | FDCAN_GFC_ANFS_Msk );
+
+            p_can->CCCR &= ~( FDCAN_CCCR_CCE | FDCAN_CCCR_INIT );
+            start = delay_get_tick();
+            while( ( ( p_can->CCCR & FDCAN_CCCR_INIT ) != 0U ) &&
+                   ( !timed_out( start, 10U ) ) )
+            {
+                /* wait for hardware to release init mode */
+            }
+
+            result = ( ( p_can->CCCR & FDCAN_CCCR_INIT ) == 0U )
+                     ? RES_OK
+                     : RES_ERR_TIMEOUT;
+        }
+    }
+
+    return result;
+}
