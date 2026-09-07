@@ -1,17 +1,10 @@
-.syntax unified     /* ARM + Thumb2 in one file                        */
-.cpu cortex-m7      /* target core                                     */
-.fpu fpv5-d16       /* H753 FPU: double precision, 16 reg pairs        */
-.thumb              /* emit Thumb2 instructions                        */
+.syntax unified
+.cpu cortex-m7
+.fpu fpv5-d16
+.thumb
 
 .global g_pfn_vectors
 .global default_handler
-
-/* these .word slots let the assembler resolve linker script symbols   */
-.word _sidata       /* flash address where .data initializers live     */
-.word _sdata        /* RAM start of .data                              */
-.word _edata        /* RAM end   of .data                              */
-.word _sbss         /* RAM start of .bss                               */
-.word _ebss         /* RAM end   of .bss                               */
 
     .section .text.reset_handler
     .weak reset_handler
@@ -19,52 +12,52 @@
 reset_handler:
     ldr   sp, =_estack          /* load stack pointer from linker symbol      */
 
-    bl    exit_run0_mode        /* H7 boots in Run* (low-power) mode          */
-                                /* must switch to normal Run before PLL touch */
+    bl    exit_run0_mode        /* H7 boots in Run0 (low-power) mode          */
+                                /* Switch to normal Run before PLL touch      */
 
-    bl    system_init           /* configure PLLs, clocks, flash latency      */
+    bl    system_init           /* configure PLL, clocks, flash latency       */
 
     /* Copy .data */
     ldr   r0, =_sdata           /* r0 = dest start                            */
     ldr   r1, =_edata           /* r1 = dest end                              */
     ldr   r2, =_sidata          /* r2 = source in flash                       */
     movs  r3, #0                /* r3 = byte offset, start at 0               */
-    b     loop_copy_data        /* jump to loop test first                    */
-copy_data:
-    ldr   r4, [r2, r3]          /* load word from flash[offset]               */
-    str   r4, [r0, r3]          /* store word to   RAM[offset]                */
-    adds  r3, r3, #4            /* advance offset by one word                 */
-loop_copy_data:
-    adds  r4, r0, r3            /* r4 = current dest address                  */
-    cmp   r4, r1                /* past end of .data?                         */
-    bcc   copy_data             /* no? keep copying (branch if carry clear)   */
 
+1:
+    adds  r4, r0, r3            /* r4 = current dest addr                     */
+    cmp   r4, r1                /* reached end of .data?                      */
+    bcs   2f                    /* yes? move to .bss                          */
+
+    ldr   r4, [r2, r3]          /* load word from flash[offset]               */
+    str   r4, [r0, r3]          /* store word to RAM[offset]                  */
+    adds  r3, r3, #4            /* advance offset by one word                 */
+    b     1b
+
+2:
     /* Zero .bss */
     ldr   r2, =_sbss            /* r2 = bss start                             */
     ldr   r4, =_ebss            /* r4 = bss end                               */
-    movs  r3, #0                /* r3 = zero value to write                   */
-    b     loop_zero_bss         /* jump to loop test first (bss may be empty) */
-zero_bss:
-    str   r3, [r2]              /* write zero to current bss address          */
-    adds  r2, r2, #4            /* advance by one word                        */
-loop_zero_bss:
+    movs  r3, #0                /* r3 = zero to write                         */
+
+3:
     cmp   r2, r4                /* reached end of .bss?                       */
-    bcc   zero_bss              /* no? keep zeroing                           */
+    bcs   4f                    /* yes? enable FPU                            */
 
+    str   r3, [r2]              /* write zero to curr bss addr                */
+    adds  r2, r2, #4            /* advance by one word                        */
+    b     3b
+
+4:
     /* Enable FPU */
-    ldr   r0, =0xE000ED88       /* r0 = address of CPACR                      */
-    ldr   r1, [r0]              /* r1 = current CPACR value                   */
-    orr   r1, r1, #(0xF << 20)  /* set CP10 and CP11 to full access            */
+    ldr   r0, =0xE000ED88       /* r0 = addr of CPACR                         */
+    ldr   r1, [r0]              /* r1 = curr CPACR value                      */
+    orr   r1, r1, #(0xF << 20)  /* set CP10 and CP11 to full access           */
     str   r1, [r0]              /* write back                                 */
-    dsb                         /* data sync barrier (ensure write completes) */
-    isb                         /* instruction sync (flush pipeline)          */
-                                /* pipeline must be flushed so the next fetch */
-                                /* sees the FPU as enabled                    */
+    dsb
+    isb
 
-    bl    main                  /* jump to main                               */
-    b     .                     /* main() should never return                 */
-                                /* if it does, spin here rather than          */
-                                /* executing garbage below the stack          */
+    bl    main
+    b     .                     /* main should never return                   */
 
     .size reset_handler, .-reset_handler
 
@@ -83,17 +76,17 @@ g_pfn_vectors:
     .word mem_manage_handler
     .word bus_fault_handler
     .word usage_fault_handler
-    .word 0                         /* reserved */
-    .word 0                         /* reserved */
-    .word 0                         /* reserved */
-    .word 0                         /* reserved */
+    .word 0
+    .word 0
+    .word 0
+    .word 0
     .word svc_handler
     .word debug_mon_handler
-    .word 0                         /* reserved */
+    .word 0
     .word pend_sv_handler
     .word systick_handler
-    /* External -- pad unreserved slots with default_handler,
-       add a real handler name when you need it               */
+
+    /* External interrupts */
     .word default_handler           /* WWDG                  */
     .word default_handler           /* PVD/AVD               */
     .word default_handler           /* TAMP/STAMP            */
@@ -158,10 +151,10 @@ g_pfn_vectors:
     .word default_handler           /* ETH                   */
     .word default_handler           /* ETH wakeup            */
     .word default_handler           /* FDCAN cal             */
-    .word 0                         /* reserved              */
-    .word 0                         /* reserved              */
-    .word 0                         /* reserved              */
-    .word 0                         /* reserved              */
+    .word 0
+    .word 0
+    .word 0
+    .word 0
     .word default_handler           /* DMA2 stream 5         */
     .word default_handler           /* DMA2 stream 6         */
     .word default_handler           /* DMA2 stream 7         */
@@ -266,8 +259,7 @@ g_pfn_vectors:
     .weak systick_handler
     .thumb_set systick_handler, default_handler
 
-    /* Weak-alias we need */
-    /* Add an entry here when we promote a default_handler slot. */
+    /* Application IRQs */
     .weak usart1_irq_handler
     .thumb_set usart1_irq_handler, default_handler
     .weak usart2_irq_handler
