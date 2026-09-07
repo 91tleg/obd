@@ -60,7 +60,7 @@ uart_driver_t * bsp_uart_obd( void )
     return &s_obd;
 }
 
-void UART4_IRQHandler( void )
+void uart4_irq_handler( void )
 {
     uart_driver_irq_handler( &s_obd );
 }

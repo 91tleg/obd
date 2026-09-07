@@ -60,7 +60,7 @@ uart_driver_t * bsp_uart_debug( void )
     return &s_debug;
 }
 
-void USART3_IRQHandler( void )
+void usart3_irq_handler( void )
 {
     uart_driver_irq_handler( &s_debug );
 }
