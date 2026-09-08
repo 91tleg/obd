@@ -5,6 +5,7 @@
 #include "bsp/nucleo_h753zi/button.h"
 #include "bsp/nucleo_h753zi/can.h"
 #include "bsp/nucleo_h753zi/wdt.h"
+#include "bsp/nucleo_h753zi/systick.h"
 #include "hal/nvic.h"
 
 __attribute__(( weak )) result_t bsp_uart_obd_init( void )
@@ -22,6 +23,8 @@ result_t board_init( void )
     result_t result;
 
     nvic_global_disable();
+
+    bsp_systick_init();
 
     bsp_wdt_init();  /* watchdog running starting from here */
 
