@@ -23,6 +23,8 @@ result_t bsp_uart_debug_init( void )
     rcc_uart_clk_enable( BSP_DEBUG_UART );
     rcc_uart_reset( BSP_DEBUG_UART );
 
+    rcc_usart_clk_src_pclk1( BSP_DEBUG_UART );
+
     gpio_set_mode( BSP_DEBUG_TX_PORT, BSP_DEBUG_TX_PIN, GPIO_MODE_AF );
     gpio_set_af( BSP_DEBUG_TX_PORT, BSP_DEBUG_TX_PIN, BSP_DEBUG_TX_AF );
     gpio_set_speed( BSP_DEBUG_TX_PORT, BSP_DEBUG_TX_PIN, GPIO_SPEED_HIGH );

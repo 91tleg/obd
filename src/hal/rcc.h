@@ -404,7 +404,16 @@ static inline void rcc_uart_reset( USART_TypeDef * uart )
 static inline uint32_t rcc_get_hclk_freq( void )
 {
     extern uint32_t SystemCoreClock;
-    return SystemCoreClock;
+
+    uint32_t const d1hpre =
+        ( RCC->D1CFGR & RCC_D1CFGR_HPRE_Msk ) >> RCC_D1CFGR_HPRE_Pos;
+
+    uint32_t const shift =
+        ( ( d1hpre & 0x4U ) != 0U)
+            ? ( ( d1hpre & 0x3U ) + 1U)
+            : 0U;
+
+    return SystemCoreClock >> shift;
 }
 
 static inline uint32_t rcc_get_pclk1_freq( void )
@@ -419,8 +428,7 @@ static inline uint32_t rcc_get_pclk1_freq( void )
 
 static inline uint32_t rcc_get_usart28_clk_freq( void )
 {
-    /* D2CCIP2R USART28SEL = 000 */
-    return rcc_get_pclk1_freq();
+    return 100000000U;
 }
 
 static inline uint32_t rcc_get_pclk2_freq( void )
@@ -495,6 +503,20 @@ static inline void rcc_fdcan_clk_enable( void )
 static inline void rcc_fdcan_clk_disable( void )
 {
     RCC->APB1HENR &= ~RCC_APB1HENR_FDCANEN;
+}
+
+static inline void rcc_usart_clk_src_pclk1( USART_TypeDef * uart )
+{
+    if( ( uart == USART2 ) || ( uart == USART3 ) ||
+        ( uart == UART4  ) || ( uart == UART5  ) ||
+        ( uart == UART7  ) || ( uart == UART8 ) )
+    {
+        RCC->D2CCIP2R &= ~RCC_D2CCIP2R_USART28SEL_Msk;
+    }
+    else /* USART1 or USART6 */
+    {
+        RCC->D2CCIP2R &= ~RCC_D2CCIP2R_USART16SEL_Msk;
+    }
 }
 
 #endif /* HAL_RCC_H */
