@@ -10,8 +10,6 @@
 #define TAG  "MAIN"
 
 static volatile btn_event_t s_btn_event = BTN_EVENT_NONE;
-static obd_app_t s_obd;
-static uint32_t s_last_blink_ms = 0U;
 
 static void display_update_or_halt( live_data_t const * live,
                                     dtc_list_t  const * dtcs )
@@ -48,6 +46,8 @@ void btn_event_callback( btn_event_t event )
 
 int main( void )
 {
+    static obd_app_t s_obd;
+    static uint32_t s_last_blink_ms = 0U;
     result_t result;
 
     result = board_init();
