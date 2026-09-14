@@ -17,6 +17,11 @@
 #include "drivers/protocol/obd/obd_protocol.h"
 #include "drivers/protocol/obd/obd_types.h"
 
+void delay_ms( uint32_t ms )
+{
+
+}
+
 void setUp( void )
 {
     stub_reset();
