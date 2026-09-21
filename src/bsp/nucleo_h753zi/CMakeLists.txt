@@ -52,6 +52,15 @@ add_library( platform_nucleo_h753zi STATIC
     ${PROTOCOL_PLATFORM_SRC}
 )
 
+# Select the OBD transport init in board_init() at compile time. A weak-symbol
+# fallback cannot work here: it lives in the same archive as the real
+# definition, so the linker never pulls the real one in.
+if( OBD_PROTOCOL STREQUAL "kwp2000" )
+    target_compile_definitions( platform_nucleo_h753zi PRIVATE BSP_OBD_KWP2000 )
+else()
+    target_compile_definitions( platform_nucleo_h753zi PRIVATE BSP_OBD_CAN )
+endif()
+
 target_include_directories( platform_nucleo_h753zi PUBLIC
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/bsp
