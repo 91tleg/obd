@@ -5,7 +5,6 @@ add_executable( test_obd_protocol
     ${SRC}/drivers/protocol/obd/can/protocol.c
     ${SRC}/drivers/protocol/obd/can/obd_protocol.c
     ${SRC}/bsp/nucleo_h753zi/can_tp.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../stubs/can_stub.c
 )
 target_include_directories( test_obd_protocol PRIVATE
     ${SRC}

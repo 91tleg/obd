@@ -209,14 +209,16 @@ static dtc_type_t dtc_type_from_byte( uint8_t high_byte )
     switch( ( high_byte >> 6U ) & 0x03U )
     {
         case 0x00U:
-        case 0x01U:
             type = DTC_TYPE_POWERTRAIN;
             break;
-        case 0x02U:
+        case 0x01U:
             type = DTC_TYPE_CHASSIS;
             break;
-        case 0x03U:
+        case 0x02U:
             type = DTC_TYPE_BODY;
+            break;
+        case 0x03U:
+            type = DTC_TYPE_NETWORK;
             break;
         default:
             /* unreachable — 2-bit value fully enumerated */
@@ -266,8 +268,7 @@ result_t obd_decode_dtcs( uint8_t const * payload,
         uint32_t offset = 1U;
         uint32_t i = 0U;
 
-        dtc_out->count = 0U;
-
+        /* Appends to dtc_out; caller clears count before the first call. */
         while( ( i < dtc_count ) &&
                ( dtc_out->count < DTC_LIST_MAX ) &&
                ( ( offset + 2U ) <= len ) )
