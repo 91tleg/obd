@@ -76,6 +76,7 @@ add_dependencies( firmware
 
 target_compile_definitions( firmware PRIVATE
     STM32H753xx
+    LOG_ENABLED
 )
 
 target_compile_options( firmware PRIVATE
@@ -90,6 +91,21 @@ target_compile_options( firmware PRIVATE
 set_target_properties( firmware PROPERTIES
     SUFFIX ".elf"
     LINK_DEPENDS ${LINKER_SCRIPT}
+)
+
+# The libraries are passed via -Wl,--start-group above, so CMake does not know
+# the ELF depends on them. Declare it, otherwise library edits do not relink.
+set_property( TARGET firmware APPEND PROPERTY LINK_DEPENDS
+    $<TARGET_FILE:app>
+    $<TARGET_FILE:drivers_button>
+    $<TARGET_FILE:drivers_display>
+    $<TARGET_FILE:drivers_uart>
+    $<TARGET_FILE:obd_shared>
+    $<TARGET_FILE:${OBD_PROTOCOL_LIB}>
+    $<TARGET_FILE:platform_${BOARD}>
+    $<TARGET_FILE:bsp_${BOARD}>
+    $<TARGET_FILE:hal>
+    $<TARGET_FILE:lib>
 )
 
 target_generate_bin( firmware )
