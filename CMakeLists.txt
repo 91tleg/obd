@@ -14,4 +14,10 @@ endif()
 
 include(cmake/cppcheck.cmake)
 
-add_subdirectory(src)
+option(BUILD_HITL "Build the CAN loopback HITL image instead of the firmware" OFF)
+
+if(BUILD_HITL)
+    add_subdirectory(test/hitl)
+else()
+    add_subdirectory(src)
+endif()

@@ -1,11 +1,15 @@
-cmake_minimum_required( VERSION 3.20 )
-project( hitl C ASM )
-
+# Built from the repo root:  cmake -B build/hitl -DBUILD_HITL=ON
+# (src/ CMake files resolve paths via CMAKE_SOURCE_DIR, so this cannot be a
+# standalone top-level project.)
 set( CMAKE_C_STANDARD 11 )
 set( SRC ${CMAKE_CURRENT_SOURCE_DIR}/../../src )
 
-if( NOT DEFINED BOARD OR BOARD STREQUAL "" )
-    set( BOARD "nucleo_h753zi" CACHE STRING "Target board" )
+# Required by src/drivers and src/bsp (same defaults as src/CMakeLists.txt).
+if( NOT DEFINED DISPLAY OR DISPLAY STREQUAL "" )
+    set( DISPLAY "hd44780" CACHE STRING "Display: st7789 or hd44780" )
+endif()
+if( NOT DEFINED OBD_PROTOCOL OR OBD_PROTOCOL STREQUAL "" )
+    set( OBD_PROTOCOL "can" CACHE STRING "OBD transport: kwp2000 or can" )
 endif()
 
 if( CMAKE_BUILD_TYPE STREQUAL "Debug" )
@@ -24,6 +28,7 @@ add_executable( hitl_can_loopback
     ${SRC}/startup/startup.s
     ${CMAKE_CURRENT_SOURCE_DIR}/main_hitl.c
     ${CMAKE_CURRENT_SOURCE_DIR}/test_can_loopback.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/hitl_support.c
     ${SRC}/lib/log/log.c
     ${SRC}/lib/string/str.c
 )
@@ -55,18 +60,22 @@ target_link_options( hitl_can_loopback PRIVATE
     -Wl,-u,system_init
     -Wl,-u,main
     -Wl,-u,board_init
-    -Wl,--start-group
-        $<TARGET_FILE:drivers_button>
-        $<TARGET_FILE:drivers_uart>
-        $<TARGET_FILE:platform_${BOARD}>
-        $<TARGET_FILE:bsp_${BOARD}>
-        $<TARGET_FILE:hal>
-        $<TARGET_FILE:lib>
-    -Wl,--end-group
     -nostdlib
 )
 
-target_link_libraries( hitl_can_loopback PRIVATE cmsis )
+# Via target_link_libraries (not raw link options) so the archives are placed
+# after this target's objects and CMake tracks them as relink dependencies.
+target_link_libraries( hitl_can_loopback PRIVATE
+    cmsis
+    -Wl,--start-group
+        drivers_button
+        drivers_uart
+        platform_${BOARD}
+        bsp_${BOARD}
+        hal
+        lib
+    -Wl,--end-group
+)
 
 add_dependencies( hitl_can_loopback
     drivers_button
