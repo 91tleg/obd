@@ -40,10 +40,17 @@
 /* RXESC / TXESC: data field size = 111b: 64 bytes */
 #define ESC_64_BYTES           ( 0x7U )
 
-#define STD_FILTER_SFEC_RXF0   ( 0x3U )
-#define STD_FILTER_SFT_RANGE   ( 0x1U )
-#define STD_FILTER_SFEC_Pos    ( 30U )
-#define STD_FILTER_SFT_Pos     ( 27U )
+/*
+ * Standard message ID filter element (RM0433 FDCAN):
+ *   [31:30] SFT   filter type   00 = range SFID1..SFID2
+ *   [29:27] SFEC  filter config 001 = store in Rx FIFO 0
+ *   [26:16] SFID1 first ID (range start)
+ *   [10:0]  SFID2 second ID (range end)
+ */
+#define STD_FILTER_SFT_RANGE   ( 0x0U )
+#define STD_FILTER_SFEC_RXF0   ( 0x1U )
+#define STD_FILTER_SFT_Pos     ( 30U )
+#define STD_FILTER_SFEC_Pos    ( 27U )
 #define STD_FILTER_SFID1_Pos   ( 16U )
 #define STD_FILTER_SFID2_Pos   (  0U )
 #define STD_FILTER_ID_MASK     ( 0x7FFU )
@@ -90,6 +97,14 @@ static uint32_t ram_base( FDCAN_GlobalTypeDef const * p_can )
     }
 
     return base;
+}
+
+static uint32_t std_range_filter_word( can_filter_t const * filter )
+{
+    return ( ( STD_FILTER_SFT_RANGE  ) << STD_FILTER_SFT_Pos   ) |
+           ( ( STD_FILTER_SFEC_RXF0  ) << STD_FILTER_SFEC_Pos  ) |
+           ( ( filter->id_low  & STD_FILTER_ID_MASK ) << STD_FILTER_SFID1_Pos ) |
+           ( ( filter->id_high & STD_FILTER_ID_MASK ) << STD_FILTER_SFID2_Pos );
 }
 
 static bool timed_out( uint32_t start, uint32_t timeout_ms )
@@ -172,11 +187,7 @@ result_t can_init( FDCAN_GlobalTypeDef * p_can,
             base = ram_base( p_can );
             ram  = ( uint32_t * )( base + RAM_OFF_STD_FILTER );
 
-            *ram =
-                ( ( STD_FILTER_SFEC_RXF0                 ) << STD_FILTER_SFEC_Pos  ) |
-                ( ( STD_FILTER_SFT_RANGE                 ) << STD_FILTER_SFT_Pos   ) |
-                ( ( filter->id_high & STD_FILTER_ID_MASK ) << STD_FILTER_SFID1_Pos ) |
-                ( ( filter->id_low  & STD_FILTER_ID_MASK ) << STD_FILTER_SFID2_Pos );
+            *ram = std_range_filter_word( filter );
 
             p_can->GFC = ( FDCAN_GFC_ANFE_Msk | FDCAN_GFC_ANFS_Msk );
 
@@ -397,11 +408,7 @@ result_t can_init_loopback( FDCAN_GlobalTypeDef * p_can,
             base = ram_base( p_can );
             ram  = ( uint32_t * )( base + RAM_OFF_STD_FILTER );
 
-            *ram =
-                ( ( STD_FILTER_SFEC_RXF0                 ) << STD_FILTER_SFEC_Pos  ) |
-                ( ( STD_FILTER_SFT_RANGE                 ) << STD_FILTER_SFT_Pos   ) |
-                ( ( filter->id_high & STD_FILTER_ID_MASK ) << STD_FILTER_SFID1_Pos ) |
-                ( ( filter->id_low  & STD_FILTER_ID_MASK ) << STD_FILTER_SFID2_Pos );
+            *ram = std_range_filter_word( filter );
 
             p_can->GFC = ( FDCAN_GFC_ANFE_Msk | FDCAN_GFC_ANFS_Msk );
 
