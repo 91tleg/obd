@@ -2,6 +2,9 @@
  * @file test_can_loopback.c
  * @brief HITL loopback test suite (FDCAN1 internal loopback, no bus needed).
  *
+ * Tests 1-13 use the polling receive path (can_init_loopback leaves the
+ * peripheral in polling mode); tests 14-18 enable interrupt-driven receive.
+ *
  * Results are kept in RAM (hitl_pass / hitl_fail / hitl_fails[] / hitl_done)
  * so scripts/hitl.sh can read them over SWD without relying on the UART.
  * hitl_finish() is the anchor the script breaks on.
@@ -410,6 +413,143 @@ static void test_12_cantp_multiframe_send_needs_flow_control( void )
 }
 
 /* ------------------------------------------------------------------ */
+/* Interrupt-driven receive (IRQ moves frames into a software ring)   */
+/* ------------------------------------------------------------------ */
+
+static uint32_t hw_fifo_level( void )
+{
+    return ( FDCAN1->RXF0S & FDCAN_RXF0S_F0FL_Msk ) >> FDCAN_RXF0S_F0FL_Pos;
+}
+
+/** Send `count` classic frames with data[0] = first_seq + i and let them land. */
+static bool send_seq( uint8_t first_seq, uint32_t count )
+{
+    bool ok = true;
+
+    for( uint32_t i = 0U; i < count; ++i )
+    {
+        can_frame_t tx = make_classic( 0x7E8U, ( uint8_t )( first_seq + i ) );
+        ok = ok && RES_IS_OK( can_send( FDCAN1, &tx ) );
+    }
+
+    return ok && wait_tx_idle();
+}
+
+static result_t enter_isr_mode( void )
+{
+    result_t r = init_loopback_with( 0U );
+
+    if( RES_IS_OK( r ) )
+    {
+        r = can_rx_irq_enable( FDCAN1 );
+    }
+
+    return r;
+}
+
+static void test_14_isr_drains_hw_fifo( void )
+{
+    CHECK( RES_IS_OK( enter_isr_mode() ), "T14 enable ISR mode" );
+
+    CHECK( send_seq( 0x40U, 1U ), "T14 send" );
+
+    /* The ISR ran: the frame left the hardware FIFO with nobody calling recv. */
+    CHECK( hw_fifo_level() == 0U, "T14 hardware FIFO drained by ISR" );
+    CHECK( can_rx_available( FDCAN1 ) == 1U, "T14 frame waiting in ring" );
+
+    can_frame_t rx;
+    CHECK( RES_IS_OK( can_recv( FDCAN1, &rx, 10U ) ), "T14 recv from ring" );
+    CHECK( ( rx.id == 0x7E8U ) && ( rx.data[ 0 ] == 0x40U ), "T14 frame content" );
+    CHECK( can_rx_available( FDCAN1 ) == 0U, "T14 ring empty after recv" );
+}
+
+static void test_15_isr_buffers_beyond_hw_fifo( void )
+{
+    CHECK( RES_IS_OK( enter_isr_mode() ), "T15 enable ISR mode" );
+
+    /* 12 frames with no recv in between: polling mode would overflow at 8. */
+    CHECK( send_seq( 0U, 6U ), "T15 send batch 1" );
+    CHECK( send_seq( 6U, 6U ), "T15 send batch 2" );
+
+    CHECK( can_rx_available( FDCAN1 ) == 12U, "T15 12 frames buffered" );
+    CHECK( can_rx_dropped( FDCAN1 ) == 0U, "T15 nothing dropped" );
+    CHECK( ( FDCAN1->RXF0S & FDCAN_RXF0S_RF0L ) == 0U, "T15 no hardware FIFO overrun" );
+
+    can_frame_t rx;
+    bool in_order = true;
+
+    for( uint8_t i = 0U; i < 12U; ++i )
+    {
+        in_order = in_order && RES_IS_OK( can_recv( FDCAN1, &rx, 10U ) ) &&
+                   ( rx.data[ 0 ] == i );
+    }
+    CHECK( in_order, "T15 delivered in order" );
+    CHECK( can_recv( FDCAN1, &rx, 2U ) == RES_ERR_TIMEOUT, "T15 nothing extra" );
+}
+
+static void test_16_isr_ring_overflow( void )
+{
+    CHECK( RES_IS_OK( enter_isr_mode() ), "T16 enable ISR mode" );
+
+    /* 20 frames into a 16-slot ring: the newest 4 are dropped and counted. */
+    CHECK( send_seq( 0U, 7U ), "T16 send batch 1" );
+    CHECK( send_seq( 7U, 7U ), "T16 send batch 2" );
+    CHECK( send_seq( 14U, 6U ), "T16 send batch 3" );
+
+    CHECK( can_rx_available( FDCAN1 ) == CAN_RX_RING_SIZE, "T16 ring full" );
+    CHECK( can_rx_dropped( FDCAN1 ) == 4U, "T16 4 frames counted as dropped" );
+    CHECK( hw_fifo_level() == 0U, "T16 hardware FIFO still drained (no wedge)" );
+
+    can_frame_t rx;
+    bool oldest_kept = true;
+
+    for( uint8_t i = 0U; i < CAN_RX_RING_SIZE; ++i )
+    {
+        oldest_kept = oldest_kept && RES_IS_OK( can_recv( FDCAN1, &rx, 10U ) ) &&
+                      ( rx.data[ 0 ] == i );
+    }
+    CHECK( oldest_kept, "T16 oldest 16 frames kept in order" );
+
+    /* The ring must recover once it has been drained. */
+    CHECK( send_seq( 0x90U, 1U ), "T16 send after overflow" );
+    CHECK( RES_IS_OK( can_recv( FDCAN1, &rx, 10U ) ) && ( rx.data[ 0 ] == 0x90U ),
+           "T16 ring recovers after overflow" );
+}
+
+static void test_17_isr_filter_and_timeout( void )
+{
+    CHECK( RES_IS_OK( enter_isr_mode() ), "T17 enable ISR mode" );
+
+    can_frame_t bad = make_classic( 0x7F0U, 0x66U );
+    CHECK( RES_IS_OK( can_send( FDCAN1, &bad ) ) && wait_tx_idle(), "T17 send out-of-range ID" );
+    CHECK( can_rx_available( FDCAN1 ) == 0U, "T17 hardware filter still applies" );
+
+    can_frame_t rx;
+    uint32_t const start = delay_get_tick();
+    result_t const r = can_recv( FDCAN1, &rx, 15U );
+    uint32_t const elapsed = delay_get_tick() - start;
+
+    CHECK( r == RES_ERR_TIMEOUT, "T17 empty recv times out (WFI path)" );
+    CHECK( ( elapsed >= 15U ) && ( elapsed <= 30U ), "T17 timeout duration ~15 ms" );
+}
+
+static void test_18_isr_disable_returns_to_polling( void )
+{
+    CHECK( RES_IS_OK( enter_isr_mode() ), "T18 enable ISR mode" );
+    CHECK( RES_IS_OK( can_rx_irq_disable( FDCAN1 ) ), "T18 disable ISR mode" );
+
+    CHECK( send_seq( 0x77U, 1U ), "T18 send" );
+
+    /* Polling again: the frame stays in the hardware FIFO until recv. */
+    CHECK( hw_fifo_level() == 1U, "T18 frame stays in hardware FIFO" );
+    CHECK( can_rx_available( FDCAN1 ) == 0U, "T18 ring unused" );
+
+    can_frame_t rx;
+    CHECK( RES_IS_OK( can_recv( FDCAN1, &rx, 10U ) ) && ( rx.data[ 0 ] == 0x77U ),
+           "T18 polled recv works" );
+}
+
+/* ------------------------------------------------------------------ */
 /* CAN FD bit-rate switching (re-initialises the peripheral)          */
 /* ------------------------------------------------------------------ */
 
@@ -466,6 +606,13 @@ uint32_t run_can_loopback_tests( void )
         test_11_cantp_multiframe_recv();            drain_rx_fifo();
         test_12_cantp_multiframe_send_needs_flow_control();
         test_13_brs();                              drain_rx_fifo();
+
+        /* ISR mode last: each test re-initializes the peripheral. */
+        test_14_isr_drains_hw_fifo();
+        test_15_isr_buffers_beyond_hw_fifo();
+        test_16_isr_ring_overflow();
+        test_17_isr_filter_and_timeout();
+        test_18_isr_disable_returns_to_polling();
     }
 
     LOGI_U32( TAG, "PASS: ", hitl_pass );

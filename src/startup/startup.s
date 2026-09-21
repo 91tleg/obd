@@ -106,7 +106,7 @@ g_pfn_vectors:
     .word default_handler           /* DMA1 stream 5         */
     .word default_handler           /* DMA1 stream 6         */
     .word default_handler           /* ADC1/2/3              */
-    .word default_handler           /* FDCAN1 IT0            */
+    .word fdcan1_it0_irq_handler    /* FDCAN1 IT0            */
     .word default_handler           /* FDCAN2 IT0            */
     .word default_handler           /* FDCAN1 IT1            */
     .word default_handler           /* FDCAN2 IT1            */
@@ -260,6 +260,8 @@ g_pfn_vectors:
     .thumb_set systick_handler, default_handler
 
     /* Application IRQs */
+    .weak fdcan1_it0_irq_handler
+    .thumb_set fdcan1_it0_irq_handler, default_handler
     .weak usart1_irq_handler
     .thumb_set usart1_irq_handler, default_handler
     .weak usart2_irq_handler

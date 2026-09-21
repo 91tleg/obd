@@ -14,6 +14,9 @@
 #define CAN_FRAME_DATA_LEN     ( 8U )
 #define CAN_FRAME_FD_DATA_LEN  ( 64U )
 
+/* Software RX ring used in interrupt mode. Must be a power of two. */
+#define CAN_RX_RING_SIZE       ( 16U )
+
 #define CAN_FD_DLC_12   ( 9U  )
 #define CAN_FD_DLC_16   ( 10U )
 #define CAN_FD_DLC_20   ( 11U )
@@ -132,5 +135,37 @@ result_t can_init_loopback( FDCAN_GlobalTypeDef * p_can,
                             can_timing_t timing,
                             can_data_timing_t data_timing,
                             can_filter_t const * filter );
+
+/**
+ * Switch reception to interrupt-driven mode.
+ *
+ * Call after can_init()/can_init_loopback(). From then on the peripheral's
+ * IRQ handler moves frames from the hardware RX FIFO 0 into a software ring
+ * (CAN_RX_RING_SIZE frames) and can_recv() reads from that ring, sleeping in
+ * WFI instead of spinning. The caller must enable the peripheral's NVIC line
+ * and route it to can_irq_handler().
+ *
+ * can_init()/can_init_loopback() return the peripheral to polling mode and
+ * discard any buffered frames.
+ */
+result_t can_rx_irq_enable( FDCAN_GlobalTypeDef * p_can );
+
+/** Return to polling mode (can_recv drains the hardware FIFO itself). */
+result_t can_rx_irq_disable( FDCAN_GlobalTypeDef * p_can );
+
+/**
+ * Interrupt service routine body. Call from the peripheral's IRQ vector.
+ * Only touches the hardware FIFO and the software ring.
+ */
+void can_irq_handler( FDCAN_GlobalTypeDef * p_can );
+
+/** Frames buffered in the software ring (interrupt mode). */
+uint32_t can_rx_available( FDCAN_GlobalTypeDef const * p_can );
+
+/**
+ * Frames lost since the last init: software ring full, or hardware FIFO
+ * overrun flagged by the peripheral.
+ */
+uint32_t can_rx_dropped( FDCAN_GlobalTypeDef const * p_can );
 
 #endif /* HAL_CAN_H */

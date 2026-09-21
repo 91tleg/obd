@@ -3,9 +3,18 @@
 #include "hal/gpio.h"
 #include "hal/rcc.h"
 #include "hal/can.h"
+#include "hal/nvic.h"
+
+/* More urgent than the debug UART (6). SysTick keeps its reset priority (0), so
+ * the CAN ISR can never delay the tick that can_recv() timeouts depend on. */
+#define CAN_IRQ_PRIORITY  ( 5U )
+
+_Static_assert( BSP_CAN == FDCAN1, "CAN IRQ wiring below assumes FDCAN1" );
 
 result_t bsp_can_init( void )
 {
+    result_t result;
+
     static can_timing_t const s_can_timing = CAN_NBTP( 10U, 1U, 29U, 10U );
 
     /*
@@ -38,5 +47,23 @@ result_t bsp_can_init( void )
     gpio_set_pull(  BSP_CAN_RX_PORT, BSP_CAN_RX_PIN, GPIO_PULL_NONE       );
     gpio_set_otype( BSP_CAN_RX_PORT, BSP_CAN_RX_PIN, GPIO_OTYPE_PUSH_PULL );
 
-    return can_init( BSP_CAN, s_can_timing, s_data_timing, &s_can_filter );
+    result = can_init( BSP_CAN, s_can_timing, s_data_timing, &s_can_filter );
+
+    if( RES_IS_OK( result ) )
+    {
+        result = can_rx_irq_enable( BSP_CAN );
+    }
+
+    if( RES_IS_OK( result ) )
+    {
+        nvic_enable_irq( FDCAN1_IT0_IRQn, CAN_IRQ_PRIORITY );
+    }
+
+    return result;
+}
+
+/* Vector table entry (see startup.s): move received frames into the HAL ring. */
+void fdcan1_it0_irq_handler( void )
+{
+    can_irq_handler( BSP_CAN );
 }

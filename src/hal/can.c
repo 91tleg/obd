@@ -14,6 +14,7 @@
 
 #include "can.h"
 #include <stddef.h>
+#include "lib/string/str.h"
 #include "lib/time/delay_tick.h"
 
 #define FDCAN1_RAM_BASE  ( SRAMCAN_BASE )
@@ -112,6 +113,109 @@ static bool timed_out( uint32_t start, uint32_t timeout_ms )
     return ( ( delay_get_tick() - start ) >= timeout_ms );
 }
 
+/*
+ * Interrupt-mode receive state, one per peripheral.
+ *
+ * Single producer (the IRQ handler) / single consumer (can_recv): the
+ * producer only writes `head`, the consumer only writes `tail`, so no lock is
+ * needed. In polling mode the ring is unused and can_recv is the only reader
+ * of the hardware FIFO, so there is still exactly one FIFO consumer.
+ */
+typedef struct
+{
+    can_frame_t       ring[ CAN_RX_RING_SIZE ];
+    volatile uint32_t head;      /* next slot the ISR writes   */
+    volatile uint32_t tail;      /* next slot can_recv reads   */
+    volatile uint32_t dropped;
+    volatile bool     irq_mode;
+} can_rx_state_t;
+
+#define CAN_NUM_PERIPHS  ( 2U )
+
+static can_rx_state_t s_rx[ CAN_NUM_PERIPHS ];
+
+static can_rx_state_t * rx_state( FDCAN_GlobalTypeDef const * p_can )
+{
+    can_rx_state_t * st = NULL;
+
+    if( p_can == FDCAN1 )
+    {
+        st = &s_rx[ 0U ];
+    }
+    else if( p_can == FDCAN2 )
+    {
+        st = &s_rx[ 1U ];
+    }
+    else
+    {
+        /* invalid */
+    }
+
+    return st;
+}
+
+static void rx_state_reset( FDCAN_GlobalTypeDef * p_can )
+{
+    can_rx_state_t * const st = rx_state( p_can );
+
+    /* Stop the interrupt source before touching the ring it feeds. */
+    p_can->IE   = 0U;
+    p_can->ILE  = 0U;
+    p_can->IR   = 0xFFFFFFFFU;
+
+    if( st != NULL )
+    {
+        st->head     = 0U;
+        st->tail     = 0U;
+        st->dropped  = 0U;
+        st->irq_mode = false;
+    }
+}
+
+/** True if RX FIFO 0 holds at least one element. */
+static bool hw_fifo_has_frame( FDCAN_GlobalTypeDef const * p_can )
+{
+    return ( ( p_can->RXF0S & FDCAN_RXF0S_F0FL_Msk ) != 0U );
+}
+
+/**
+ * Decode the element at the RX FIFO 0 get index into *frame and release it.
+ * Caller has checked hw_fifo_has_frame().
+ */
+static void hw_fifo_pop( FDCAN_GlobalTypeDef * p_can, can_frame_t * frame )
+{
+    uint32_t get_idx =
+        ( p_can->RXF0S & FDCAN_RXF0S_F0GI_Msk ) >> FDCAN_RXF0S_F0GI_Pos;
+
+    uint32_t   base = ram_base( p_can );
+    uint32_t * elem = ( uint32_t * )
+        ( base + RAM_OFF_RXF0 + ( get_idx * CAN_ELEMENT_SIZE_BYTES ) );
+
+    /* R0: standard ID */
+    frame->id = ( elem[ 0U ] >> 18U ) & STD_FILTER_ID_MASK;
+
+    /* R1: DLC, FDF, BRS */
+    frame->dlc = ( uint8_t )( ( elem[ 1U ] >> RXBE_R1_DLC_Pos ) & 0xFU );
+    frame->fd  = ( ( elem[ 1U ] >> RXBE_R1_FDF_Pos ) & 1U ) != 0U;
+    frame->brs = ( ( elem[ 1U ] >> RXBE_R1_BRS_Pos ) & 1U ) != 0U;
+
+    /* Data words: unpack all up to actual payload length */
+    uint32_t byte_count = dlc_to_bytes( frame->dlc );
+
+    for( uint32_t w = 0U; w < CAN_FD_DATA_WORDS; ++w )
+    {
+        uint32_t word = elem[ CAN_FD_HEADER_WORDS + w ];
+        uint32_t b    = w * 4U;
+
+        if( b + 0U < byte_count ) { frame->data[ b + 0U ] = ( uint8_t )( word        ); }
+        if( b + 1U < byte_count ) { frame->data[ b + 1U ] = ( uint8_t )( word >>  8U ); }
+        if( b + 2U < byte_count ) { frame->data[ b + 2U ] = ( uint8_t )( word >> 16U ); }
+        if( b + 3U < byte_count ) { frame->data[ b + 3U ] = ( uint8_t )( word >> 24U ); }
+    }
+
+    p_can->RXF0A = get_idx;
+}
+
 result_t can_init( FDCAN_GlobalTypeDef * p_can,
                    can_timing_t timing,
                    can_data_timing_t data_timing,
@@ -141,6 +245,7 @@ result_t can_init( FDCAN_GlobalTypeDef * p_can,
         else
         {
             p_can->CCCR |= FDCAN_CCCR_CCE;
+            rx_state_reset( p_can );
 
             /* Nominal bit timing */
             p_can->NBTP = timing;
@@ -272,13 +377,33 @@ result_t can_send( FDCAN_GlobalTypeDef * p_can,
     return result;
 }
 
+/** Pop one frame from the software ring. Consumer side only. */
+static bool ring_pop( can_rx_state_t * st, can_frame_t * frame )
+{
+    bool popped = false;
+
+    if( st->tail != st->head )
+    {
+        /* mem_copy, not struct assignment: -nostdlib has no memcpy. */
+        mem_copy( frame,
+                  &st->ring[ st->tail & ( CAN_RX_RING_SIZE - 1U ) ],
+                  ( uint32_t )sizeof( can_frame_t ) );
+        __DMB();   /* finish reading the slot before releasing it */
+        st->tail = st->tail + 1U;
+        popped = true;
+    }
+
+    return popped;
+}
+
 result_t can_recv( FDCAN_GlobalTypeDef * p_can,
                    can_frame_t * frame,
                    uint32_t timeout_ms )
 {
-    result_t res = RES_OK;
+    result_t res = RES_ERR_TIMEOUT;
+    can_rx_state_t * const st = rx_state( p_can );
 
-    if( ( p_can == NULL ) || ( frame == NULL ) )
+    if( ( p_can == NULL ) || ( frame == NULL ) || ( st == NULL ) )
     {
         res = RES_ERR_INVALID_ARG;
     }
@@ -288,56 +413,160 @@ result_t can_recv( FDCAN_GlobalTypeDef * p_can,
     }
     else
     {
-        uint32_t start = delay_get_tick();
+        uint32_t const start = delay_get_tick();
+        bool got = false;
 
-        while( ( ( p_can->RXF0S & FDCAN_RXF0S_F0FL_Msk ) == 0U ) &&
-               ( !timed_out( start, timeout_ms ) ) )
+        while( !got && !timed_out( start, timeout_ms ) )
         {
-            /* Wait until at least one element is in RX FIFO 0. */
-        }
-
-        if( ( p_can->RXF0S & FDCAN_RXF0S_F0FL_Msk ) == 0U )
-        {
-            res = RES_ERR_TIMEOUT;
-        }
-
-        if( RES_IS_OK( res ) )
-        {
-            uint32_t get_idx =
-                ( p_can->RXF0S & FDCAN_RXF0S_F0GI_Msk ) >> FDCAN_RXF0S_F0GI_Pos;
-
-            uint32_t   base = ram_base( p_can );
-            uint32_t * elem = ( uint32_t * )
-                ( base + RAM_OFF_RXF0 + ( get_idx * CAN_ELEMENT_SIZE_BYTES ) );
-
-            /* R0: standard ID */
-            frame->id = ( elem[ 0U ] >> 18U ) & STD_FILTER_ID_MASK;
-
-            /* R1: DLC, FDF, BRS */
-            frame->dlc = ( uint8_t )
-                ( ( elem[ 1U ] >> RXBE_R1_DLC_Pos ) & 0xFU );
-            frame->fd  = ( ( elem[ 1U ] >> RXBE_R1_FDF_Pos ) & 1U ) != 0U;
-            frame->brs = ( ( elem[ 1U ] >> RXBE_R1_BRS_Pos ) & 1U ) != 0U;
-
-            /* Data words: unpack all up to actual payload length */
-            uint32_t byte_count = dlc_to_bytes( frame->dlc );
-
-            for( uint32_t w = 0U; w < CAN_FD_DATA_WORDS; ++w )
+            if( st->irq_mode )
             {
-                uint32_t word = elem[ CAN_FD_HEADER_WORDS + w ];
-                uint32_t b    = w * 4U;
+                got = ring_pop( st, frame );
 
-                if( b + 0U < byte_count ) { frame->data[ b + 0U ] = ( uint8_t )( word        ); }
-                if( b + 1U < byte_count ) { frame->data[ b + 1U ] = ( uint8_t )( word >>  8U ); }
-                if( b + 2U < byte_count ) { frame->data[ b + 2U ] = ( uint8_t )( word >> 16U ); }
-                if( b + 3U < byte_count ) { frame->data[ b + 3U ] = ( uint8_t )( word >> 24U ); }
+                if( !got )
+                {
+                    /*
+                     * Sleep until the next interrupt: the CAN IRQ when a
+                     * frame arrives, or SysTick (1 ms) so the timeout above
+                     * is still honoured.
+                     */
+                    __WFI();
+                }
             }
+            else if( hw_fifo_has_frame( p_can ) )
+            {
+                hw_fifo_pop( p_can, frame );
+                got = true;
+            }
+            else
+            {
+                /* polling mode: spin until the frame or the timeout */
+            }
+        }
 
-            p_can->RXF0A = get_idx;
+        /* One last look so a frame that lands exactly at the deadline wins. */
+        if( !got )
+        {
+            if( st->irq_mode )
+            {
+                got = ring_pop( st, frame );
+            }
+            else if( hw_fifo_has_frame( p_can ) )
+            {
+                hw_fifo_pop( p_can, frame );
+                got = true;
+            }
+            else
+            {
+                /* nothing arrived */
+            }
+        }
+
+        if( got )
+        {
+            res = RES_OK;
         }
     }
 
     return res;
+}
+
+result_t can_rx_irq_enable( FDCAN_GlobalTypeDef * p_can )
+{
+    result_t result = RES_ERR_INVALID_ARG;
+    can_rx_state_t * const st = rx_state( p_can );
+
+    if( st != NULL )
+    {
+        st->head    = 0U;
+        st->tail    = 0U;
+        st->dropped = 0U;
+        st->irq_mode = true;
+
+        /*
+         * Frames already sitting in the hardware FIFO would not raise a new
+         * interrupt, so pull them in by hand first. IE is still 0 here, so
+         * this thread is the only producer. A frame arriving after the drain
+         * sets IR.RF0N and fires as soon as IE/ILE are enabled below.
+         */
+        p_can->IR = 0xFFFFFFFFU;
+        can_irq_handler( p_can );
+
+        p_can->ILS = 0U;                                   /* all on line 0 */
+        p_can->IE  = FDCAN_IE_RF0NE | FDCAN_IE_RF0LE;
+        p_can->ILE = FDCAN_ILE_EINT0;
+
+        result = RES_OK;
+    }
+
+    return result;
+}
+
+result_t can_rx_irq_disable( FDCAN_GlobalTypeDef * p_can )
+{
+    result_t result = RES_ERR_INVALID_ARG;
+    can_rx_state_t * const st = rx_state( p_can );
+
+    if( st != NULL )
+    {
+        p_can->IE  = 0U;
+        p_can->ILE = 0U;
+        st->irq_mode = false;
+        result = RES_OK;
+    }
+
+    return result;
+}
+
+void can_irq_handler( FDCAN_GlobalTypeDef * p_can )
+{
+    can_rx_state_t * const st = rx_state( p_can );
+
+    if( ( st != NULL ) && st->irq_mode )
+    {
+        uint32_t const ir = p_can->IR;
+
+        /* Hardware FIFO overrun: a frame was lost before we could drain it. */
+        if( ( ir & FDCAN_IR_RF0L ) != 0U )
+        {
+            st->dropped = st->dropped + 1U;
+        }
+
+        /* Acknowledge before draining so a frame arriving meanwhile re-raises. */
+        p_can->IR = ir & ( FDCAN_IR_RF0N | FDCAN_IR_RF0L );
+
+        while( hw_fifo_has_frame( p_can ) )
+        {
+            uint32_t const head = st->head;
+
+            if( ( head - st->tail ) < CAN_RX_RING_SIZE )
+            {
+                hw_fifo_pop( p_can, &st->ring[ head & ( CAN_RX_RING_SIZE - 1U ) ] );
+                __DMB();   /* slot fully written before it becomes visible */
+                st->head = head + 1U;
+            }
+            else
+            {
+                /* Ring full: still release the element or the FIFO wedges. */
+                can_frame_t discard;
+                hw_fifo_pop( p_can, &discard );
+                st->dropped = st->dropped + 1U;
+            }
+        }
+    }
+}
+
+uint32_t can_rx_available( FDCAN_GlobalTypeDef const * p_can )
+{
+    can_rx_state_t const * const st = rx_state( p_can );
+
+    return ( st != NULL ) ? ( st->head - st->tail ) : 0U;
+}
+
+uint32_t can_rx_dropped( FDCAN_GlobalTypeDef const * p_can )
+{
+    can_rx_state_t const * const st = rx_state( p_can );
+
+    return ( st != NULL ) ? st->dropped : 0U;
 }
 
 result_t can_init_loopback( FDCAN_GlobalTypeDef * p_can,
@@ -369,6 +598,7 @@ result_t can_init_loopback( FDCAN_GlobalTypeDef * p_can,
         else
         {
             p_can->CCCR |= FDCAN_CCCR_CCE;
+            rx_state_reset( p_can );
 
             /* TX internally wired to RX */
             p_can->CCCR |= FDCAN_CCCR_TEST;
