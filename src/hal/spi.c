@@ -4,6 +4,12 @@
  */
 
 #include "hal/spi.h"
+#include "lib/time/delay.h"
+
+/* SPI runs well after the IWDG (~2s) is active, so a stuck peripheral would
+ * eventually be caught by that — but only after freezing the whole system
+ * for up to 2s. Give it a real, much tighter timeout instead. */
+#define SPI_OP_TIMEOUT_MS  ( 50U )
 
 static uint32_t mode_to_cfg2( spi_mode_t mode )
 {
@@ -94,15 +100,20 @@ result_t spi_write_byte( SPI_TypeDef * p_spi, uint8_t data )
 
     if( p_spi != NULL )
     {
-        while( ( p_spi->SR & SPI_SR_TXP ) == 0U )
+        delay_timer_t timer;
+        delay_timer_start( &timer, SPI_OP_TIMEOUT_MS );
+        result = RES_ERR_TIMEOUT;
+
+        while( !delay_timer_expired( &timer ) )
         {
-            /* wait for TX FIFO to have space */
+            if( ( p_spi->SR & SPI_SR_TXP ) != 0U )
+            {
+                /* write one byte — 8-bit access to TXDR */
+                *( ( volatile uint8_t * )&p_spi->TXDR ) = data;
+                result = RES_OK;
+                break;
+            }
         }
-
-        /* write one byte — 8-bit access to TXDR */
-        *( ( volatile uint8_t * )&p_spi->TXDR ) = data;
-
-        result = RES_OK;
     }
 
     return result;
@@ -118,18 +129,26 @@ result_t spi_write_buf( SPI_TypeDef * p_spi,
     {
         uint32_t i = 0U;
 
-        while( i < len )
+        result = RES_OK;
+
+        while( ( i < len ) && RES_IS_OK( result ) )
         {
-            while( ( p_spi->SR & SPI_SR_TXP ) == 0U )
+            delay_timer_t timer;
+            delay_timer_start( &timer, SPI_OP_TIMEOUT_MS );
+            result = RES_ERR_TIMEOUT;
+
+            while( !delay_timer_expired( &timer ) )
             {
-                /* wait for TX FIFO space */
+                if( ( p_spi->SR & SPI_SR_TXP ) != 0U )
+                {
+                    *( ( volatile uint8_t * )&p_spi->TXDR ) = buf[ i ];
+                    result = RES_OK;
+                    break;
+                }
             }
 
-            *( ( volatile uint8_t * )&p_spi->TXDR ) = buf[ i ];
             ++i;
         }
-
-        result = RES_OK;
     }
 
     return result;
@@ -141,12 +160,18 @@ result_t spi_wait_idle( SPI_TypeDef const * p_spi )
 
     if( p_spi != NULL )
     {
-        while( ( p_spi->SR & SPI_SR_TXC ) == 0U )
-        {
-            /* wait for TX FIFO empty */
-        }
+        delay_timer_t timer;
+        delay_timer_start( &timer, SPI_OP_TIMEOUT_MS );
+        result = RES_ERR_TIMEOUT;
 
-        result = RES_OK;
+        while( !delay_timer_expired( &timer ) )
+        {
+            if( ( p_spi->SR & SPI_SR_TXC ) != 0U )
+            {
+                result = RES_OK;
+                break;
+            }
+        }
     }
 
     return result;

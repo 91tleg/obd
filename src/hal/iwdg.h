@@ -7,15 +7,17 @@
 #define HAL_IWDG_H
 
 #include "cmsis/stm32h753xx.h"
+#include "hal/nvic.h"
 
 static inline void enable_lsi( void )
 {
     RCC->CSR |= RCC_CSR_LSION;
 
-    while ((RCC->CSR & RCC_CSR_LSIRDY) == 0U)
-    {
-
-    }
+    /*
+     * Runs before iwdg_start() — the IWDG itself isn't running yet, so
+     * nothing else bounds this wait. See nvic.h.
+     */
+    HAL_SPIN_UNTIL_OR_RESET( ( RCC->CSR & RCC_CSR_LSIRDY ) == 0U );
 }
 
 static inline void iwdg_start( void )
@@ -50,10 +52,13 @@ static inline void iwdg_refresh( void )
 
 static inline void iwdg_wait_ready( void )
 {
-    while( ( IWDG1->SR & ( IWDG_SR_PVU | IWDG_SR_RVU ) ) != 0U )
-    {
-        /* wait for PR and RLR update to complete */
-    }
+    /*
+     * The IWDG is already counting down on its power-on-reset default
+     * window here (iwdg_start() ran first), so this is implicitly bounded
+     * by that reset — but make it explicit rather than relying on it.
+     */
+    HAL_SPIN_UNTIL_OR_RESET(
+        ( IWDG1->SR & ( IWDG_SR_PVU | IWDG_SR_RVU ) ) != 0U );
 }
 
 #endif /* HAL_IWDG_H */

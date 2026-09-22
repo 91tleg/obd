@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 #include "cmsis/stm32h753xx.h"
+#include "hal/nvic.h"
 
 static inline void flash_set_latency( uint32_t latency )
 {
@@ -15,11 +16,9 @@ static inline void flash_set_latency( uint32_t latency )
                | ( latency << FLASH_ACR_LATENCY_Pos )
                | FLASH_ACR_WRHIGHFREQ_1;  /* required for VOS1 */
 
-    while( ( FLASH->ACR & FLASH_ACR_LATENCY_Msk ) !=
-           ( latency << FLASH_ACR_LATENCY_Pos ) )
-    {
-        /* wait for latency to apply */
-    }
+    /* Runs in system_init(), before SysTick/IWDG exist — see nvic.h. */
+    HAL_SPIN_UNTIL_OR_RESET( ( FLASH->ACR & FLASH_ACR_LATENCY_Msk ) !=
+                             ( latency << FLASH_ACR_LATENCY_Pos ) );
 }
 
 #endif /* HAL_FLASH_H */

@@ -79,4 +79,36 @@ static inline void nvic_exit_critical( uint32_t primask )
     __set_PRIMASK( primask );
 }
 
+/*
+ * Generous iteration bound for HAL_SPIN_UNTIL_OR_RESET(). Not a calibrated
+ * timeout — the condition normally clears in microseconds to low-single-digit
+ * milliseconds — just large enough to never trip on working hardware while
+ * still being bounded.
+ */
+#define HAL_BOOT_SPIN_LIMIT  ( 2000000UL )
+
+/**
+ * Busy-wait on a hardware condition that must clear during early boot —
+ * clock/power bring-up in system_init(), or LSI/IWDG bring-up in
+ * bsp_wdt_init() — before SysTick or the IWDG are running. With no timebase
+ * and no watchdog yet, an unconditional "while(cond){}" here is a permanent,
+ * unrecoverable hang if the hardware never responds (dead crystal, etc.).
+ *
+ * Spins up to HAL_BOOT_SPIN_LIMIT iterations; if @p cond is still true when
+ * the count is exhausted, forces a system reset instead of hanging forever,
+ * so a transient issue gets a fresh boot attempt rather than a dead board.
+ */
+#define HAL_SPIN_UNTIL_OR_RESET( cond )                                \
+    do {                                                              \
+        uint32_t _hal_spin = HAL_BOOT_SPIN_LIMIT;                     \
+        while( ( cond ) && ( _hal_spin > 0U ) )                       \
+        {                                                             \
+            --_hal_spin;                                             \
+        }                                                             \
+        if( _hal_spin == 0U )                                        \
+        {                                                             \
+            NVIC_SystemReset();                                      \
+        }                                                             \
+    } while( 0 )
+
 #endif /* HAL_NVIC_H */

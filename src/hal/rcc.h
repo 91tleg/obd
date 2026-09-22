@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "cmsis/stm32h753xx.h"
+#include "hal/nvic.h"
 
 typedef struct
 {
@@ -19,10 +20,8 @@ static inline void rcc_pll1_configure( const rcc_pll1_cfg_t * cfg )
     if( cfg != NULL )
     {
         RCC->CR &= ~RCC_CR_PLL1ON;
-        while( ( RCC->CR & RCC_CR_PLL1RDY ) != 0U )
-        {
-            /* wait for PLL1 to stop */
-        }
+        /* Runs in system_init(), before SysTick/IWDG exist — see nvic.h. */
+        HAL_SPIN_UNTIL_OR_RESET( ( RCC->CR & RCC_CR_PLL1RDY ) != 0U );
 
         RCC->PLLCKSELR = RCC_PLLCKSELR_PLLSRC_HSE
                     | ( cfg->m << RCC_PLLCKSELR_DIVM1_Pos );
@@ -41,10 +40,8 @@ static inline void rcc_pll1_configure( const rcc_pll1_cfg_t * cfg )
 static inline void rcc_pll1_enable( void )
 {
     RCC->CR |= RCC_CR_PLL1ON;
-    while( ( RCC->CR & RCC_CR_PLL1RDY ) == 0U )
-    {
-        /* wait for lock */
-    }
+    /* Runs in system_init(), before SysTick/IWDG exist — see nvic.h. */
+    HAL_SPIN_UNTIL_OR_RESET( ( RCC->CR & RCC_CR_PLL1RDY ) == 0U );
 }
 
 static inline void rcc_gpio_clk_enable( GPIO_TypeDef * port )
@@ -444,10 +441,8 @@ static inline uint32_t rcc_get_pclk2_freq( void )
 static inline void rcc_hse_enable( void )
 {
     RCC->CR |= RCC_CR_HSEON;
-    while( ( RCC->CR & RCC_CR_HSERDY ) == 0U )
-    {
-        /* wait */
-    }
+    /* Runs in system_init(), before SysTick/IWDG exist — see nvic.h. */
+    HAL_SPIN_UNTIL_OR_RESET( ( RCC->CR & RCC_CR_HSERDY ) == 0U );
 }
 
 static inline void rcc_prescalers_configure( uint32_t d1cfgr,
@@ -462,10 +457,9 @@ static inline void rcc_prescalers_configure( uint32_t d1cfgr,
 static inline void rcc_sysclk_switch_pll1( void )
 {
     RCC->CFGR = ( RCC->CFGR & ~RCC_CFGR_SW_Msk ) | RCC_CFGR_SW_PLL1;
-    while( ( RCC->CFGR & RCC_CFGR_SWS_Msk ) != RCC_CFGR_SWS_PLL1 )
-    {
-        /* wait */
-    }
+    /* Runs in system_init(), before SysTick/IWDG exist — see nvic.h. */
+    HAL_SPIN_UNTIL_OR_RESET(
+        ( RCC->CFGR & RCC_CFGR_SWS_Msk ) != RCC_CFGR_SWS_PLL1 );
 }
 
 static inline void rcc_usart_clk_src_hsi( USART_TypeDef * uart )

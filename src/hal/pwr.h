@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "cmsis/stm32h753xx.h"
+#include "hal/nvic.h"
 
 typedef enum
 {
@@ -16,10 +17,8 @@ static inline void pwr_exit_run_star( void )
 {
     PWR->CR3 |= PWR_CR3_LDOEN;
 
-    while( ( PWR->CSR1 & PWR_CSR1_ACTVOSRDY ) == 0U )
-    {
-        /* wait for LDO ready */
-    }
+    /* Runs in system_init(), before SysTick/IWDG exist — see nvic.h. */
+    HAL_SPIN_UNTIL_OR_RESET( ( PWR->CSR1 & PWR_CSR1_ACTVOSRDY ) == 0U );
 }
 
 static inline void pwr_set_vos( pwr_vos_t vos )
@@ -29,10 +28,8 @@ static inline void pwr_set_vos( pwr_vos_t vos )
     PWR->D3CR = ( d3cr & ~PWR_D3CR_VOS_Msk )
                 | ( ( uint32_t )vos << PWR_D3CR_VOS_Pos );
 
-    while( ( PWR->CSR1 & PWR_CSR1_ACTVOSRDY ) == 0U )
-    {
-        /* wait for active voltage scaling ready */
-    }
+    /* Runs in system_init(), before SysTick/IWDG exist — see nvic.h. */
+    HAL_SPIN_UNTIL_OR_RESET( ( PWR->CSR1 & PWR_CSR1_ACTVOSRDY ) == 0U );
 }
 
 static inline pwr_vos_t pwr_get_vos( void )
@@ -50,10 +47,8 @@ static inline void pwr_overdrive_enable( void )
 {
     SYSCFG->PWRCR |= SYSCFG_PWRCR_ODEN;
 
-    while( ( PWR->CSR1 & PWR_CSR1_ACTVOSRDY ) == 0U )
-    {
-        /* wait for overdrive ready */
-    }
+    /* Runs in system_init(), before SysTick/IWDG exist — see nvic.h. */
+    HAL_SPIN_UNTIL_OR_RESET( ( PWR->CSR1 & PWR_CSR1_ACTVOSRDY ) == 0U );
 }
 
 static inline void pwr_backup_domain_enable( void )
