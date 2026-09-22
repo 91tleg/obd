@@ -216,11 +216,11 @@ result_t can_tp_send( can_tp_ctx_t * ctx,
                 {
                     if( ( fc_frame.data[ 0U ] & CAN_TP_PCI_TYPE_MASK ) != CAN_TP_PCI_FC )
                     {
-                        result = RES_ERR_BUS;
+                        result = RES_ERR_PROTOCOL;
                     }
                     else if( ( fc_frame.data[ 0U ] & CAN_TP_PCI_LEN_MASK ) != CAN_TP_FC_CTS )
                     {
-                        result = RES_ERR_BUS;
+                        result = RES_ERR_PROTOCOL;
                     }
                 }
             }
@@ -279,6 +279,7 @@ result_t can_tp_recv( can_tp_ctx_t * ctx,
     {
         bool fd = ctx->use_fd;
         can_frame_t frame;
+        *out_len = 0U;
 
         result = can_recv( BSP_CAN, &frame, timeout_ms );
 
@@ -365,6 +366,11 @@ result_t can_tp_recv( can_tp_ctx_t * ctx,
                 {
                     result = can_recv( BSP_CAN, &frame, CAN_TP_RECV_TIMEOUT_MS );
 
+                    if( RES_IS_OK( result ) && !is_obd_response( frame.id ) )
+                    {
+                        result = RES_ERR_PROTOCOL;
+                    }
+
                     if( RES_IS_OK( result ) )
                     {
                         uint8_t cf_pci = frame.data[ 0U ] & CAN_TP_PCI_TYPE_MASK;
@@ -406,7 +412,7 @@ result_t can_tp_recv( can_tp_ctx_t * ctx,
             else
             {
                 /* unexpected frame type */
-                result = RES_ERR_BUS;
+                result = RES_ERR_PROTOCOL;
             }
         }
     }

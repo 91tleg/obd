@@ -260,13 +260,18 @@ result_t obd_can_poll( obd_can_ctx_t * ctx,
                         /* decode error */
                     }
                 }
+                else if( result == RES_ERR_UNSUPPORTED )
+                {
+                    /* ECU returned negative response, skip and continue */
+                    result = RES_OK;
+                }
                 else if( RES_IS_OK( result ) )
                 {
                     /* malformed response — skip this PID */
                 }
                 else
                 {
-                    /* transport error */
+                    /* real transport error — exit loop */
                 }
 
                 ++i;
