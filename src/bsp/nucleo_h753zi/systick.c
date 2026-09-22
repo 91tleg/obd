@@ -1,5 +1,6 @@
 #include "bsp/nucleo_h753zi/systick.h"
 #include "bsp/nucleo_h753zi/resources.h"
+#include "bsp/nucleo_h753zi/button.h"
 #include "lib/time/delay_tick.h"
 #include "hal/systick.h"
 
@@ -19,4 +20,5 @@ void bsp_systick_init( void )
 void systick_handler( void )
 {
     ++s_tick;
+    bsp_button_tick();
 }

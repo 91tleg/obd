@@ -6,13 +6,6 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include "drivers/button/button_callback.h"
-
-/* button.c reports events through this; the HITL has no UI to consume them. */
-void btn_event_callback( btn_event_t event )
-{
-    ( void )event;
-}
 
 /*
  * -ffreestanding -nostdlib: GCC still emits calls to memset/memcpy for

@@ -89,4 +89,46 @@ static FDCAN_GlobalTypeDef s_fdcan2_host;
 #define FDCAN1  ( &s_fdcan1_host )
 #define FDCAN2  ( &s_fdcan2_host )
 
+/*
+ * Minimal NVIC/PRIMASK shim so hal/nvic.h compiles on host — needed by
+ * drivers that use nvic_enter_critical()/nvic_exit_critical() (e.g. the
+ * button driver). Host tests are single-threaded, so there is nothing to
+ * actually mask; these just need to exist and type-check.
+ */
+typedef int32_t IRQn_Type;
+
+static inline void NVIC_SetPriority( IRQn_Type irq, uint32_t priority )
+{
+    ( void )irq;
+    ( void )priority;
+}
+
+static inline void NVIC_EnableIRQ( IRQn_Type irq ) { ( void )irq; }
+static inline void NVIC_DisableIRQ( IRQn_Type irq ) { ( void )irq; }
+static inline void NVIC_SetPendingIRQ( IRQn_Type irq ) { ( void )irq; }
+static inline void NVIC_ClearPendingIRQ( IRQn_Type irq ) { ( void )irq; }
+
+static inline uint32_t NVIC_GetPendingIRQ( IRQn_Type irq )
+{
+    ( void )irq;
+    return 0U;
+}
+
+static inline uint32_t NVIC_GetActive( IRQn_Type irq )
+{
+    ( void )irq;
+    return 0U;
+}
+
+static inline uint32_t NVIC_GetPriority( IRQn_Type irq )
+{
+    ( void )irq;
+    return 0U;
+}
+
+static inline void __disable_irq( void ) {}
+static inline void __enable_irq( void ) {}
+static inline uint32_t __get_PRIMASK( void ) { return 0U; }
+static inline void __set_PRIMASK( uint32_t primask ) { ( void )primask; }
+
 #endif /* CMSIS_STM32H753XX_HOST_SHIM_H */

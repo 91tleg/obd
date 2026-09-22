@@ -3,13 +3,10 @@
 #include "lib/time/delay_tick.h"
 #include "lib/log/log.h"
 #include "lib/core/result.h"
-#include "drivers/button/button_callback.h"
 #include "app/app_display.h"
 #include "app/app_obd.h"
 
 #define TAG  "MAIN"
-
-static volatile btn_event_t s_btn_event = BTN_EVENT_NONE;
 
 static void display_update_or_halt( live_data_t const * live,
                                     dtc_list_t  const * dtcs )
@@ -37,11 +34,6 @@ static void display_splash_or_halt( char const * row0, char const * row1 )
             /* spin — WDT resets the system */
         }
     }
-}
-
-void btn_event_callback( btn_event_t event )
-{
-    s_btn_event = event;
 }
 
 int main( void )
@@ -107,9 +99,8 @@ int main( void )
 
         uint32_t const now_ms = delay_get_tick();
 
-        /* consume button event */
-        btn_event_t const evt = s_btn_event;
-        s_btn_event = BTN_EVENT_NONE;
+        /* consume button event — at most one per press: short click XOR hold */
+        btn_event_t const evt = bsp_button_get_event();
 
         switch( evt )
         {

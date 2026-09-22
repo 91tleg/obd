@@ -62,3 +62,17 @@ target_include_directories( test_ema PRIVATE
 )
 target_link_libraries( test_ema PRIVATE unity )
 add_test( NAME unit_ema COMMAND test_ema )
+
+add_executable( test_button
+    ${CMAKE_CURRENT_SOURCE_DIR}/drivers/test_button.c
+    ${SRC}/drivers/button/button.c
+)
+target_include_directories( test_button PRIVATE
+    # host cmsis shim must win over src/cmsis/stm32h753xx.h — button.c calls
+    # hal/nvic.h's PRIMASK intrinsics, which the shim stubs out; the real
+    # CMSIS header has them as ARM-only inline asm.
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include
+    ${SRC}
+)
+target_link_libraries( test_button PRIVATE unity )
+add_test( NAME unit_button COMMAND test_button )

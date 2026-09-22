@@ -25,6 +25,11 @@ void bsp_button_init( void )
     btn_init( &s_user_btn );
 }
 
+void bsp_button_tick( void )
+{
+    btn_tick( &s_user_btn );
+}
+
 bool bsp_button_is_pressed( void )
 {
     return btn_is_pressed( &s_user_btn );
