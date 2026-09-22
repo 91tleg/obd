@@ -9,6 +9,28 @@ permissions:
   contents: read
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - name: Configure
+        run: |
+          cmake -B build/test \
+                -S test \
+                -DCMAKE_BUILD_TYPE=Debug \
+                -G Ninja
+
+      - name: Build
+        run: cmake --build build/test
+
+      - name: Run unit + SIL tests
+        run: ctest --test-dir build/test --output-on-failure
+
   build:
     runs-on: ubuntu-latest
 
