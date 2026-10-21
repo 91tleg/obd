@@ -29,7 +29,8 @@ if( CPPCHECK )
             --error-exitcode=1
             --platform=arm32-wchar_t2
             --suppress=missingIncludeSystem
-            -i${CMAKE_SOURCE_DIR}/src/cmsis
+            --suppress=*:${CMAKE_SOURCE_DIR}/src/cmsis/*
+            --suppress=preprocessorErrorDirective:${CMAKE_SOURCE_DIR}/src/cmsis/*
             --project=${CMAKE_BINARY_DIR}/compile_commands.json
         COMMENT "Running cppcheck MISRA analysis"
         VERBATIM
